@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>scheduler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; font-family: 'Inter', 'Noto Sans JP', 'Noto-Sans-JP', "游ゴシック体", YuGothic, "游ゴシック", "Yu Gothic", "メイリオ", "Meiryo", sans-serif; background: #faf8f5; color: #1f1b16; overflow: hidden; }
+  * { box-sizing: border-box; }
+  #root { height: 100%; display: flex; flex-direction: column; }
+  /* スクロールバー出現で画面幅がずれないよう gutter を常に確保 (Chromium 94+ / Electron でサポート) */
+  #app-mount { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+
+  /* ===== Electron フレームレス窓のタイトルバー: CSS変数は ElectronRoot がテーマ同期 ===== */
+  .titlebar {
+    height: 30px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--titlebar-bg, #f3ede4);
+    border-bottom: 1px solid var(--titlebar-border, #e8dfd1);
+    -webkit-app-region: drag;
+    user-select: none;
+    font-size: 11px; color: var(--titlebar-text, #5a4f3f);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .titlebar-title {
+    padding: 0 12px; font-weight: 600; letter-spacing: 0.2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .titlebar-controls { display: flex; -webkit-app-region: no-drag; }
+  .titlebar-btn {
+    width: 44px; height: 30px; border: none; background: transparent; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: inherit; font-family: inherit;
+  }
+  .titlebar-btn:hover { background: var(--titlebar-hover, rgba(0,0,0,0.06)); }
+  .titlebar-btn.close:hover { background: #e81123; color: #fff; }
+
+  /* ブラウザ標準フォーカスリング（橙色）を全 button で抑制 */
+  button:focus, button:focus-visible { outline: none; }
+
+  /* スクロールバー */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.32); background-clip: padding-box; border: 2px solid transparent; }
+  [data-theme-dark="1"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); background-clip: padding-box; border: 2px solid transparent; }
+  [data-theme-dark="1"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); background-clip: padding-box; border: 2px solid transparent; }
+
+  /* v5 デザイン HTML と合わせた入力系デフォルト */
+  button, input, select, textarea { font-family: inherit; }
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+</style>
+
+<!-- React production -->
+<script src="./react.production.min.js"></script>
+<script src="./react-dom.production.min.js"></script>
+<!-- Babel standalone (for JSX in .jsx components) -->
+<script src="./babel.min.js"></script>
+</head>
+<body>
+<div id="root">
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-title" id="titlebar-title"></div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" id="btn-min" title="最小化" aria-label="最小化">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <button class="titlebar-btn" id="btn-max" title="最大化 / 元のサイズに戻す" aria-label="最大化">
+        <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <button class="titlebar-btn close" id="btn-close" title="閉じる" aria-label="閉じる">
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0 L10 10 M10 0 L0 10" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="app-mount"></div>
+</div>
+
+<!-- ===== Electron ブリッジ（コンポーネントより先に実行して localStorage を復元） ===== -->
+<script src="./electron-bridge.js"></script>
+
+<!-- ===== v5 コンポーネント群（読み込み順厳守） ===== -->
+<script type="text/babel" src="./components/data.jsx"></script>
+<script type="text/babel" src="./components/themes.jsx"></script>
+<script type="text/babel" src="./components/v4-store.jsx"></script>
+<script type="text/babel" src="./components/app-v3-main.jsx"></script>
+<script type="text/babel" src="./components/app-v3-timeline.jsx"></script>
+<script type="text/babel" src="./components/app-v3-sections.jsx"></script>
+<script type="text/babel" src="./components/app-v3-modals.jsx"></script>
+<script type="text/babel" src="./components/v4-dnd.jsx"></script>
+<script type="text/babel" src="./components/v4-timeline.jsx"></script>
+<script type="text/babel" src="./components/v4-pomodoro-setup.jsx"></script>
+<script type="text/babel" src="./components/v4-type-editor.jsx"></script>
+<script type="text/babel" src="./components/v4-kanban.jsx"></script>
+<script type="text/babel" src="./components/v4-report.jsx"></script>
+<script type="text/babel" src="./components/v5-patches.jsx"></script>
+<script type="text/babel" src="./components/v5-migration.jsx"></script>
+<script type="text/babel" src="./components/app-v4.jsx"></script>
+
+<!-- ===== ルート ===== -->
+<script type="text/babel">
+function ElectronRoot() {
+  // v5 の appTitle / テーマを document.title / data-theme に反映
+  // ※ 最上部カスタムバーには表示しない（V3TopBar の編集可能タイトルと重複するため）
+  const [appTitle, setAppTitle] = React.useState(() => {
+    try { return localStorage.getItem('appTitle') || 'scheduler'; }
+    catch (e) { return 'scheduler'; }
+  });
+  React.useEffect(() => {
+    const h = () => {
+      try {
+        const next = localStorage.getItem('appTitle') || 'scheduler';
+        setAppTitle(next);
+      } catch (e) { /* ignore */ }
+    };
+    window.addEventListener('apptitle-change', h);
+    window.addEventListener('storage', h);
+    return () => {
+      window.removeEventListener('apptitle-change', h);
+      window.removeEventListener('storage', h);
+    };
+  }, []);
+  React.useEffect(() => {
+    document.title = appTitle || 'scheduler';
+  }, [appTitle]);
+
+  // テーマ変化をタイトルバーへ CSS 変数経由で反映
+  React.useEffect(() => {
+    const sync = () => {
+      const id = document.documentElement.dataset.theme;
+      const theme = (window.THEMES && window.THEMES[id]) || (window.THEMES && window.THEMES.paper);
+      if (!theme) return;
+      document.documentElement.dataset.themeDark = theme.dark ? '1' : '';
+      const root = document.documentElement;
+      root.style.setProperty('--titlebar-bg', theme.SUBTLE);
+      root.style.setProperty('--titlebar-border', theme.BORDER);
+      root.style.setProperty('--titlebar-text', theme.MUTED);
+      root.style.setProperty('--titlebar-hover', theme.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)');
+    };
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    window.addEventListener('usertheme-change', sync);
+    return () => {
+      mo.disconnect();
+      window.removeEventListener('usertheme-change', sync);
+    };
+  }, []);
+
+  return <AppV4 width="100%" />;
+}
+
+ReactDOM.createRoot(document.getElementById('app-mount')).render(<ElectronRoot />);
+</script>
+</body>
+</html>
