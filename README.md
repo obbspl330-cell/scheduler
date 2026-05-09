@@ -40,7 +40,7 @@
 
 インストール不要。サンプル案件入りで起動するので、まず触感を確かめたい方はこちらからお試しください。
 
-🌐 **<https://your-username.github.io/scheduler-electron/>** *(公開後に実 URL に差し替え)*
+🌐 **<https://obbspl330-cell.github.io/scheduler/>**
 
 データはお使いのブラウザの localStorage に保存されます（同じブラウザ・同じドメインの中だけで保持）。
 試した内容を消したいときは `設定 → データ管理 → 全データをリセット`。
@@ -53,7 +53,7 @@
 
 ### インストール手順
 
-1. このリポジトリの上部メニューにある **Releases** をクリック（または [こちら](https://github.com/your-username/scheduler-electron/releases) から）
+1. このリポジトリの上部メニューにある **Releases** をクリック（または [こちら](https://github.com/obbspl330-cell/scheduler/releases) から）
 2. 最新版の `scheduler Setup x.x.x.exe` をダウンロード
 3. ダウンロードしたファイルをダブルクリックで実行
 
@@ -150,7 +150,7 @@
 ### ブラウザで直接動かす
 
 ```bash
-git clone https://github.com/your-username/scheduler-electron.git
+git clone https://github.com/obbspl330-cell/scheduler.git
 cd scheduler-electron
 # src/index.html をブラウザで開くだけで動きます
 ```
