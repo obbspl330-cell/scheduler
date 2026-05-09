@@ -48,119 +48,137 @@ const TYPE_PROCESS_AVG = {
   character: { kozu: 3.5, design: 5.5, color: 7.0, seisho: 8.0 },
 };
 
-// 案件
-// pr.days は dataStart (2026-04-15) を 0 とする日 index。
-// 「現在の月（2026-05）」が見えるよう、サンプル 1・2 のみ 5月 に色付けを置き、3-6 は未着手 (days=[]) に。
-// 参考: day 22=5/7, 25=5/10, 30=5/15, 35=5/20, 40=5/25, 45=5/30
-const PROJECTS = [
-  {
-    id: 'p1',
-    name: '案件サンプル1',
-    client: '5/末まで',
-    typeId: 'oneillust',
-    deadline: new Date(2026, 4, 29), // 5/29
-    status: 'active',
-    note: '5/末納品予定',
-    accent: 'amber',
-    processes: [
-      { id: 'pr1', type: 'kozu',   plannedH: 8,  actualH: 8.0, days: [22, 23] },          // 5/7, 5/8
-      { id: 'pr2', type: 'color',  plannedH: 12, actualH: 4.0, days: [25, 26, 27] },      // 5/10, 5/11, 5/12
-      { id: 'pr3', type: 'line',   plannedH: 16, actualH: 0,   days: [29, 30, 31, 32] },  // 5/14-5/17
-      { id: 'pr4', type: 'seisho', plannedH: 12, actualH: 0,   days: [34, 35, 36] },      // 5/19-5/21
-      { id: 'pr5', type: 'bg',     plannedH: 8,  actualH: 0,   days: [38, 39] },          // 5/23, 5/24
-      { id: 'pr6', type: 'shiage', plannedH: 8,  actualH: 0,   days: [41, 42] },          // 5/26, 5/27
-    ],
-    checklist: [
-      { id: 'c1a', text: '着手連絡', done: true },
-      { id: 'c1b', text: 'ラフ確認の返信待ち', done: true },
-      { id: 'c1c', text: '請求書送付', done: false },
-      { id: 'c1d', text: '入金確認', done: false },
-      { id: 'c1e', text: '記帳', done: false },
-    ],
-  },
-  {
-    id: 'p2',
-    name: '案件サンプル2',
-    client: '6/初旬まで',
-    typeId: 'live2d',
-    deadline: new Date(2026, 5, 10), // 6/10
-    status: 'active',
-    accent: 'rose',
-    processes: [
-      { id: 'pr7',  type: 'design', plannedH: 8,  actualH: 8.0, days: [24] },              // 5/9
-      { id: 'pr8',  type: 'color',  plannedH: 8,  actualH: 0,   days: [27, 28] },          // 5/12, 5/13
-      { id: 'pr9',  type: 'pers',   plannedH: 12, actualH: 0,   days: [31, 32, 33] },      // 5/16-5/18
-      { id: 'pr10', type: 'seisho', plannedH: 16, actualH: 0,   days: [36, 37, 38, 39] },  // 5/21-5/24
-    ],
-  },
-  {
-    id: 'p3',
-    name: '案件サンプル3',
-    client: '6/下旬まで',
-    typeId: 'multichar',
-    deadline: new Date(2026, 5, 25), // 6/25
-    status: 'active',
-    accent: 'sky',
-    processes: [
-      { id: 'pr11', type: 'kozu',     plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr12', type: 'color',    plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr13', type: 'line',     plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr14', type: 'jinbutsu', plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr15', type: 'seisho',   plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr16', type: 'bg',       plannedH: 0, actualH: 0, days: [] },
-    ],
-    checklist: [
-      { id: 'c3a', text: '着手連絡', done: false },
-      { id: 'c3b', text: '見積書送付', done: false },
-      { id: 'c3c', text: '請求書送付', done: false },
-    ],
-  },
-  {
-    id: 'p4',
-    name: '案件サンプル4',
-    client: '7/初旬まで',
-    typeId: 'character',
-    deadline: new Date(2026, 6, 3), // 7/3
-    status: 'active',
-    accent: 'violet',
-    processes: [
-      { id: 'pr17', type: 'kozu',   plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr18', type: 'design', plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr19', type: 'color',  plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr20', type: 'seisho', plannedH: 0, actualH: 0, days: [] },
-    ],
-  },
-  {
-    id: 'p5',
-    name: '案件サンプル5',
-    client: '7/中旬まで',
-    typeId: 'oneillust',
-    deadline: new Date(2026, 6, 15), // 7/15
-    status: 'active',
-    accent: 'emerald',
-    processes: [
-      { id: 'pr21', type: 'kozu',   plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr22', type: 'color',  plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr23', type: 'line',   plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr24', type: 'seisho', plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr25', type: 'bg',     plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr26', type: 'shiage', plannedH: 0, actualH: 0, days: [] },
-    ],
-  },
-  {
-    id: 'p6',
-    name: '案件サンプル6',
-    client: '7/下旬まで',
-    typeId: 'oneillust',
-    deadline: new Date(2026, 6, 24), // 7/24
-    status: 'active',
-    accent: 'fuchsia',
-    processes: [
-      { id: 'pr27', type: 'kozu',   plannedH: 0, actualH: 0, days: [] },
-      { id: 'pr28', type: 'color',  plannedH: 0, actualH: 0, days: [] },
-    ],
-  },
-];
+// 案件サンプル: 「来訪日の今日」を起点に day 0 を計算し、相対オフセットで days/deadline を組み立てる。
+// 来月や来年に訪問されてもダッシュボードと色付けが噛み合うよう、毎ロード時に動的生成する。
+// pr.days は dataStart (2026-04-15) を 0 とする絶対 index 形式で保存（UI ロジックの変更を最小化）。
+function _makeSamplePROJECTS() {
+  const dataStart = new Date(2026, 3, 15);
+  const today = (function () { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+  const todayIdx = Math.round((today - dataStart) / 86400000);
+  const off = (n) => todayIdx + n;
+  const addDays = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d; };
+  const fmtMD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const dl1 = addDays(today, 19);   // 約3週間後
+  const dl2 = addDays(today, 31);   // 約1ヶ月後
+  const dl3 = addDays(today, 46);
+  const dl4 = addDays(today, 54);
+  const dl5 = addDays(today, 66);
+  const dl6 = addDays(today, 75);
+  return [
+    {
+      id: 'p1',
+      name: '案件サンプル1',
+      client: fmtMD(dl1) + ' まで',
+      typeId: 'oneillust',
+      deadline: dl1,
+      status: 'active',
+      note: fmtMD(dl1) + ' 納品予定',
+      accent: 'amber',
+      processes: [
+        // 過去: 数日前に開始済み (kozu = 完了相当)
+        { id: 'pr1', type: 'kozu',   plannedH: 8,  actualH: 8.0, days: [off(-3), off(-2)] },
+        // 今日進行中 (color = actualH 4h 入力済み)
+        { id: 'pr2', type: 'color',  plannedH: 12, actualH: 4.0, days: [off(0), off(1), off(2)] },
+        // 今後の予定
+        { id: 'pr3', type: 'line',   plannedH: 16, actualH: 0,   days: [off(4), off(5), off(6), off(7)] },
+        { id: 'pr4', type: 'seisho', plannedH: 12, actualH: 0,   days: [off(9), off(10), off(11)] },
+        { id: 'pr5', type: 'bg',     plannedH: 8,  actualH: 0,   days: [off(13), off(14)] },
+        { id: 'pr6', type: 'shiage', plannedH: 8,  actualH: 0,   days: [off(16), off(17)] },
+      ],
+      checklist: [
+        { id: 'c1a', text: '着手連絡', done: true },
+        { id: 'c1b', text: 'ラフ確認の返信待ち', done: true },
+        { id: 'c1c', text: '請求書送付', done: false },
+        { id: 'c1d', text: '入金確認', done: false },
+        { id: 'c1e', text: '記帳', done: false },
+      ],
+    },
+    {
+      id: 'p2',
+      name: '案件サンプル2',
+      client: fmtMD(dl2) + ' まで',
+      typeId: 'live2d',
+      deadline: dl2,
+      status: 'active',
+      accent: 'rose',
+      processes: [
+        { id: 'pr7',  type: 'design', plannedH: 8,  actualH: 8.0, days: [off(-1)] },
+        { id: 'pr8',  type: 'color',  plannedH: 8,  actualH: 0,   days: [off(2), off(3)] },
+        { id: 'pr9',  type: 'pers',   plannedH: 12, actualH: 0,   days: [off(6), off(7), off(8)] },
+        { id: 'pr10', type: 'seisho', plannedH: 16, actualH: 0,   days: [off(11), off(12), off(13), off(14)] },
+      ],
+    },
+    {
+      id: 'p3',
+      name: '案件サンプル3',
+      client: fmtMD(dl3) + ' まで',
+      typeId: 'multichar',
+      deadline: dl3,
+      status: 'active',
+      accent: 'sky',
+      processes: [
+        { id: 'pr11', type: 'kozu',     plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr12', type: 'color',    plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr13', type: 'line',     plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr14', type: 'jinbutsu', plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr15', type: 'seisho',   plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr16', type: 'bg',       plannedH: 0, actualH: 0, days: [] },
+      ],
+      checklist: [
+        { id: 'c3a', text: '着手連絡', done: false },
+        { id: 'c3b', text: '見積書送付', done: false },
+        { id: 'c3c', text: '請求書送付', done: false },
+      ],
+    },
+    {
+      id: 'p4',
+      name: '案件サンプル4',
+      client: fmtMD(dl4) + ' まで',
+      typeId: 'character',
+      deadline: dl4,
+      status: 'active',
+      accent: 'violet',
+      processes: [
+        { id: 'pr17', type: 'kozu',   plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr18', type: 'design', plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr19', type: 'color',  plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr20', type: 'seisho', plannedH: 0, actualH: 0, days: [] },
+      ],
+    },
+    {
+      id: 'p5',
+      name: '案件サンプル5',
+      client: fmtMD(dl5) + ' まで',
+      typeId: 'oneillust',
+      deadline: dl5,
+      status: 'active',
+      accent: 'emerald',
+      processes: [
+        { id: 'pr21', type: 'kozu',   plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr22', type: 'color',  plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr23', type: 'line',   plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr24', type: 'seisho', plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr25', type: 'bg',     plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr26', type: 'shiage', plannedH: 0, actualH: 0, days: [] },
+      ],
+    },
+    {
+      id: 'p6',
+      name: '案件サンプル6',
+      client: fmtMD(dl6) + ' まで',
+      typeId: 'oneillust',
+      deadline: dl6,
+      status: 'active',
+      accent: 'fuchsia',
+      processes: [
+        { id: 'pr27', type: 'kozu',   plannedH: 0, actualH: 0, days: [] },
+        { id: 'pr28', type: 'color',  plannedH: 0, actualH: 0, days: [] },
+      ],
+    },
+  ];
+}
+const PROJECTS = _makeSamplePROJECTS();
+window._makeSamplePROJECTS = _makeSamplePROJECTS;
 
 const TODOS = [
   { id: 't1', text: '請求書を送付', done: false },
@@ -175,16 +193,18 @@ const ROUTINES = [
   { id: 'r3', text: '明日のタスクを確認', done: false },
 ];
 
-// 今日の作業記録 (デモ用): pr1 (kozu) は完了済み、pr2 (color) は今日進行中。
-// date は起動時の today を YYYY-MM-DD で動的に埋めるので、デモが「今日の記録あり」状態で立ち上がる。
-const _todayKey = (() => {
-  const d = TODAY;
+// 今日の作業記録 (デモ用): pr1 (color) は今日進行中、4h 入力済み。
+// date は起動時の today を YYYY-MM-DD で動的に埋め、デモを「今日の記録あり」で立ち上げる。
+function _makeSampleTODAY_LOG() {
+  const d = (function () { const x = new Date(); x.setHours(0, 0, 0, 0); return x; })();
   const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-})();
-const TODAY_LOG = [
-  { id: 'l1', projectId: 'p1', type: 'color', hours: 4.0, date: _todayKey, createdAt: TODAY.getTime() },
-];
+  const todayKey = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return [
+    { id: 'l1', projectId: 'p1', type: 'color', hours: 4.0, date: todayKey, createdAt: d.getTime() },
+  ];
+}
+const TODAY_LOG = _makeSampleTODAY_LOG();
+window._makeSampleTODAY_LOG = _makeSampleTODAY_LOG;
 
 // 累計（直近サマリー用）
 const SUMMARY = [

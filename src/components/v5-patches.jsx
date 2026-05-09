@@ -3579,7 +3579,7 @@ function V5DataManageBody({ t, store }) {
       'v5.userThemes', 'v5.cardSize', 'v5.cardChecklistExpandAll', 'v5.summaryFilter',
       'v5.workHours', 'v5.projectExpanded', 'v5.themeId', 'customHolidays', 'pomoSettings',
       'v5.pomoPresets', 'v5.pomoPresetId', 'v5.kanbanOrder', 'v5.dummyMode',
-      'v5.greetingIcon', 'v5.greetingIconBg',
+      'v5.greetingIcon', 'v5.greetingIconBg', 'v5.demoSeed',
       'appTitle', 'appSettings', 'todoLists', 'cellMemos', 'subLabels',
     ];
     keys.forEach(k => localStorage.removeItem(k));

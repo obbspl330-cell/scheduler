@@ -77,6 +77,37 @@ function loadPersistedStore() {
         }
       });
     }
+    // ===== デモシード再生成 =====
+    // 'v5.demoSeed' = '1' の間（ユーザー未編集の状態）は、来訪日の today を起点として
+    // projects と logs を毎ロード時に作り直す。
+    // 1 度でも編集が入ると pushUndo 内で marker をクリアし、以降は通常の永続データとして扱う。
+    try {
+      if (localStorage.getItem('v5.demoSeed') === '1') {
+        if (typeof window.PROJECTS !== 'undefined' || typeof PROJECTS !== 'undefined') {
+          const fresh = (window._makeSamplePROJECTS && window._makeSamplePROJECTS())
+            || (typeof PROJECTS !== 'undefined' ? PROJECTS : null);
+          if (fresh) {
+            data.projects = JSON.parse(JSON.stringify(fresh));
+            // 上記マイグレーションを fresh にも適用
+            data.projects.forEach(p => {
+              if (p.deadline && typeof p.deadline === 'string') p.deadline = new Date(p.deadline);
+              (p.processes || []).forEach(pr => {
+                if (Array.isArray(pr.deadlines)) {
+                  pr.deadlines = pr.deadlines
+                    .map(d => d instanceof Date ? d : (d ? new Date(d) : null))
+                    .filter(d => d && !isNaN(d.getTime()));
+                } else {
+                  pr.deadlines = [];
+                }
+              });
+            });
+          }
+        }
+        const freshLogs = (window._makeSampleTODAY_LOG && window._makeSampleTODAY_LOG())
+          || (typeof TODAY_LOG !== 'undefined' ? TODAY_LOG : null);
+        if (freshLogs) data.logs = JSON.parse(JSON.stringify(freshLogs));
+      }
+    } catch (e) { /* fall through */ }
     return data;
   } catch (e) { return null; }
 }
@@ -209,6 +240,11 @@ function useV4Store() {
 
   // projects/types/logs の変更を localStorage に永続化
   React.useEffect(() => {
+    // 初回 (永続化データが存在しなかった場合) はデモシードマーカーを設定。
+    // これ以降のロードでは loadPersistedStore がマーカーを見て projects/logs を再生成する。
+    if (!persistedRef.current && !localStorage.getItem('v5.demoSeed')) {
+      try { localStorage.setItem('v5.demoSeed', '1'); } catch (e) {}
+    }
     savePersistedStore({ projects, types, logs });
   }, [projects, types, logs]);
 
@@ -233,6 +269,9 @@ function useV4Store() {
   const pushUndo = (action) => {
     const u = undoRef.current;
     const now = Date.now();
+    // 一度でもユーザー編集が入ったらデモシードマーカーをクリアし、
+    // 以降は再生成せず通常の永続データとして扱う。
+    try { localStorage.removeItem('v5.demoSeed'); } catch (e) {}
     if (DRAG_ACTIONS.has(action) && DRAG_ACTIONS.has(u.lastAction) && now - u.lastPushAt < COALESCE_MS) {
       u.lastPushAt = now;
       return;
