@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; font-family: 'Inter', 'Noto Sans JP', 'Noto-Sans-JP', "游ゴシック体", YuGothic, "游ゴシック", "Yu Gothic", "メイリオ", "Meiryo", sans-serif; background: #faf8f5; color: #1f1b16; overflow: hidden; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: 'Inter', 'Noto Sans JP', 'Noto-Sans-JP', "游ゴシック体", YuGothic, "游ゴシック", "Yu Gothic", "メイリオ", "Meiryo", sans-serif; background: var(--app-bg, #faf8f5); color: var(--app-text, #1f1b16); overflow: hidden; }
   * { box-sizing: border-box; }
   #root { height: 100%; display: flex; flex-direction: column; }
   /* スクロールバー出現で画面幅がずれないよう gutter を常に確保 (Chromium 94+ / Electron でサポート) */
@@ -141,6 +141,10 @@ function ElectronRoot() {
       root.style.setProperty('--titlebar-border', theme.BORDER);
       root.style.setProperty('--titlebar-text', theme.MUTED);
       root.style.setProperty('--titlebar-hover', theme.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)');
+      // body 背景もテーマに同期。スクロールバー gutter (transparent track) がここを透かして見せるため、
+      // 同期しないと dark テーマでスクロールバー帯だけ白く浮く現象が発生する
+      root.style.setProperty('--app-bg', theme.BG);
+      root.style.setProperty('--app-text', theme.TEXT);
     };
     sync();
     const mo = new MutationObserver(sync);

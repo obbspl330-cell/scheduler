@@ -2370,6 +2370,28 @@ window.V5ProjectEditor = V5ProjectEditor;
 
 // ============ V3TopBar 上書き: 編集可能タイトル / ワークスペース削除 / 検索バー機能化 ============
 const _origTopBar = window.V3TopBar;
+// 文字サイズ切替: ブラウザの Ctrl++ 相当の挙動を CSS zoom で実装。
+// 数百箇所の fontSize: px を書き換えずに全体スケーリングできるのが採用理由。
+// 倍率は 1.0 / 1.12 / 1.25 (ブラウザで 125% まで動作確認済み)。
+const FONT_SCALE_KEY = 'v5.fontScale';
+const FONT_SCALE_MAP = { sm: 1.0, md: 1.12, lg: 1.25 };
+const FONT_SCALE_LABELS = { sm: '小', md: '中', lg: '大' };
+// CSS zoom は viewport 単位を不変にするため、maxHeight: 85vh が zoom 1.25 で見た目 106vh まで膨らむ。
+// 「見た目で 85vh」を維持するため、zoom 倍率の逆数で maxHeight を縮める CSS 変数を併せて公開する。
+const MODAL_MAX_VH_MAP = { sm: '85vh', md: '76vh', lg: '68vh' };
+function applyFontScale(scale) {
+  const z = FONT_SCALE_MAP[scale] || 1.0;
+  try {
+    document.documentElement.style.zoom = z === 1 ? '' : String(z);
+    document.documentElement.style.setProperty('--modal-max-h', MODAL_MAX_VH_MAP[scale] || '85vh');
+  } catch (e) {}
+}
+// 初回描画の前にも適用してチラつき防止（React マウント前にスクリプトが読み込まれた段階で実行）
+try {
+  const _initScale = localStorage.getItem(FONT_SCALE_KEY);
+  if (_initScale === 'md' || _initScale === 'lg') applyFontScale(_initScale);
+} catch (e) {}
+
 window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQuery, setSearchQuery, pomo, store }) {
   const [themeOpen, setThemeOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -2378,6 +2400,17 @@ window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQ
   const [title, setTitle] = React.useState(() => localStorage.getItem('appTitle') || 'scheduler');
   const [editingTitle, setEditingTitle] = React.useState(false);
   const [draftTitle, setDraftTitle] = React.useState(title);
+  const [fontScale, setFontScale] = React.useState(() => {
+    try {
+      const v = localStorage.getItem(FONT_SCALE_KEY);
+      if (v === 'sm' || v === 'md' || v === 'lg') return v;
+    } catch (e) {}
+    return 'sm';
+  });
+  React.useEffect(() => {
+    applyFontScale(fontScale);
+    try { localStorage.setItem(FONT_SCALE_KEY, fontScale); } catch (e) {}
+  }, [fontScale]);
 
   // Ctrl+Z / Ctrl+Shift+Z (Mac は Meta) を document レベルでキャプチャ
   // input/textarea/contentEditable にフォーカス中はブラウザのネイティブ undo を優先
@@ -2479,6 +2512,31 @@ window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQ
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ opacity: 0.6 }}><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       )}
+
+      {/* 文字サイズ切替 (小 / 中 / 大) - 老眼レビュー対応。CSS zoom で全体スケーリング */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        border: `1px solid ${t.BORDER}`, borderRadius: 6, overflow: 'hidden',
+        background: t.CARD,
+      }} title="文字サイズ">
+        {(['sm', 'md', 'lg']).map((s, i) => {
+          const active = fontScale === s;
+          const charSize = s === 'sm' ? 10 : s === 'md' ? 12 : 14;
+          return (
+            <button key={s} onClick={() => setFontScale(s)} title={`文字サイズ: ${FONT_SCALE_LABELS[s]}`} style={{
+              padding: '4px 8px', minWidth: 26, height: 24, border: 'none',
+              borderLeft: i === 0 ? 'none' : `1px solid ${t.BORDER}`,
+              background: active ? `${t.ACCENT}18` : 'transparent',
+              color: active ? t.ACCENT : t.MUTED,
+              cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: active ? 700 : 500,
+            }}>
+              <span style={{ fontSize: charSize, lineHeight: 1 }}>A</span>
+            </button>
+          );
+        })}
+      </div>
 
       <div style={{ position: 'relative' }}>
         <button onClick={() => setThemeOpen(!themeOpen)} style={{
@@ -3023,18 +3081,14 @@ window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setS
             const pct = (v / maxV) * 100;
             const hue = PROCESS_COLORS[k]?.hue ?? 220;
             const tone = window._v5Tone || 'pastel';
-            // 工程平均バー: トーン別に優しめの配色を直書き（'solid' より軟らかめ）
-            let barStart, barEnd;
+            // 工程平均バー: トーン別に優しめの配色をべた塗りで（旧: グラデーションの濃い側の値を採用）
+            let barColor;
             if (tone === 'mono') {
-              barStart = t.dark ? `hsl(${hue} 8% 40%)` : `hsl(${hue} 10% 86%)`;
-              barEnd   = t.dark ? `hsl(${hue} 8% 52%)` : `hsl(${hue} 12% 72%)`;
+              barColor = t.dark ? `hsl(${hue} 8% 52%)` : `hsl(${hue} 12% 72%)`;
             } else if (tone === 'vivid') {
-              barStart = t.dark ? `hsl(${hue} 70% 45%)` : `hsl(${hue} 75% 82%)`;
-              barEnd   = t.dark ? `hsl(${hue} 80% 58%)` : `hsl(${hue} 70% 62%)`;
+              barColor = t.dark ? `hsl(${hue} 80% 58%)` : `hsl(${hue} 70% 62%)`;
             } else {
-              // pastel: さらに淡く、薄ピンク〜薄くすみトーン
-              barStart = t.dark ? `hsl(${hue} 30% 42%)` : `hsl(${hue} 55% 90%)`;
-              barEnd   = t.dark ? `hsl(${hue} 40% 55%)` : `hsl(${hue} 45% 76%)`;
+              barColor = t.dark ? `hsl(${hue} 40% 55%)` : `hsl(${hue} 45% 76%)`;
             }
             return (
               <div key={k} style={{ marginBottom: 10 }}>
@@ -3050,7 +3104,7 @@ window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setS
                 <div style={{ height: 8, background: t.SUBTLE, borderRadius: 3, overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', width: `${pct}%`,
-                    background: `linear-gradient(90deg, ${barStart}, ${barEnd})`,
+                    background: barColor,
                   }} />
                 </div>
               </div>
@@ -3694,11 +3748,27 @@ function V5SettingsModal({ t, store, themeId, setThemeId, onClose, initialSectio
   const ChecklistTemplateBody = window.V5ChecklistTemplateEditor;
 
   return (
-    <ModalShell t={t} title="設定" onClose={onClose} width={820}>
-      {/* セクション切替で縦幅が変わらないよう固定高 + 右ペイン内をスクロール可能に */}
-      <div style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: 16, height: 520 }}>
+    <ModalShell
+      t={t}
+      title="設定"
+      onClose={onClose}
+      width={820}
+      height={620}
+      bodyScroll={false}
+      footer={<button onClick={onClose} style={buttonStyle(t, 'primary')}>閉じる</button>}
+    >
+      {/* card に確定高さを与え (height=620, ただし --modal-max-h でクランプ)、
+          bodyScroll=false で body wrapper を overflow hidden + flex column 化。
+          グリッドは flex: 1 で body の確定高さを完全に受け取り、
+          gridTemplateRows: minmax(0, 1fr) で行をその高さに固定 → カラム内 overflowY が機能。
+          左右カラム独立スクロール: 文字拡大時に閉じるボタンや左ナビへの導線を保つ */}
+      <div style={{
+        flex: 1, minHeight: 0,
+        display: 'grid', gridTemplateColumns: '170px 1fr', gridTemplateRows: 'minmax(0, 1fr)',
+        gap: 16,
+      }}>
         {/* 左: セクションナビ（グループ化）- 枠線は廃し、選択時のみ淡いアクセント塗り */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', overflowX: 'hidden' }}>
           {sectionGroups.map((g, gi) => (
             <React.Fragment key={g.label}>
               <div style={{
@@ -3756,13 +3826,6 @@ function V5SettingsModal({ t, store, themeId, setThemeId, onClose, initialSectio
           {section === 'privacy' && <V5PrivacyBody t={t} store={store} />}
           {section === 'data' && <V5DataManageBody t={t} store={store} />}
         </div>
-      </div>
-      {/* フッター: コンテンツとボタンの間に区切り線一本のみ */}
-      <div style={{
-        display: 'flex', justifyContent: 'flex-end',
-        marginTop: 16, paddingTop: 16, borderTop: `1px solid ${t.BORDER}`,
-      }}>
-        <button onClick={onClose} style={buttonStyle(t, 'primary')}>閉じる</button>
       </div>
     </ModalShell>
   );
@@ -4124,9 +4187,7 @@ function V5DailyHoursChart({ t, store }) {
             }}>
               <div style={{
                 width: '100%', height: `${pct}%`, minHeight: minH,
-                background: v === 0 ? t.SUBTLE : isToday
-                  ? `linear-gradient(180deg, ${t.ACCENT}, ${t.ACCENT}cc)`
-                  : `linear-gradient(180deg, ${t.ACCENT}99, ${t.ACCENT}55)`,
+                background: v === 0 ? t.SUBTLE : isToday ? t.ACCENT : `${t.ACCENT}88`,
                 borderRadius: '4px 4px 0 0',
                 border: isToday ? `1px solid ${t.ACCENT}` : 'none',
                 position: 'relative',

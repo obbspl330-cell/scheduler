@@ -77,9 +77,7 @@ function V4Report({ t, store }) {
                 </div>
                 <div style={{
                   width: '100%', height: `${h}%`, minHeight: v > 0 ? 8 : 2,
-                  background: v === 0 ? t.SUBTLE : isToday
-                    ? `linear-gradient(180deg, ${t.ACCENT}, ${t.ACCENT}cc)`
-                    : `linear-gradient(180deg, ${t.ACCENT}99, ${t.ACCENT}55)`,
+                  background: v === 0 ? t.SUBTLE : isToday ? t.ACCENT : `${t.ACCENT}88`,
                   borderRadius: '4px 4px 0 0',
                   border: isToday ? `1px solid ${t.ACCENT}` : 'none',
                 }} />
@@ -111,7 +109,7 @@ function V4Report({ t, store }) {
                   </span>
                 </div>
                 <div style={{ height: 7, background: t.SUBTLE, borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${col}aa, ${col})` }} />
+                  <div style={{ height: '100%', width: `${pct}%`, background: col }} />
                 </div>
               </div>
             );

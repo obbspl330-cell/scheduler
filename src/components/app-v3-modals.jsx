@@ -380,7 +380,11 @@ function V3SubLabelEditor({ t, processKey, onClose }) {
 }
 
 // ============ shared ============
-function ModalShell({ t, title, onClose, width = 520, children }) {
+// height: 数値を渡すと card が固定高になる。body 内で flex/grid に「確定した高さ」を
+// 渡したい場合に使用（カラム独立スクロール等）。未指定なら従来通り content 駆動。
+// bodyScroll: 既定 true（body wrapper が overflow auto）。false にすると overflow hidden + flex column
+// になり、子要素が自前でスクロールを管理する想定。
+function ModalShell({ t, title, onClose, width = 520, height, bodyScroll = true, children, footer }) {
   // Open/close transition: scale + opacity (transitions.dev: Modal Open/Close)
   const [phase, setPhase] = React.useState('entering'); // 'entering' | 'shown' | 'closing'
   React.useEffect(() => {
@@ -397,6 +401,8 @@ function ModalShell({ t, title, onClose, width = 520, children }) {
   const visible = phase === 'shown';
   // Portal で document.body へ出すことで、祖先の transform 等で fixed の包含ブロックが
   // 縮められる現象（kanban / report 等で発生していた）を回避
+  // タイトル / フッター（任意）は固定し、本文だけスクロールする縦 flex 構造。
+  // 文字サイズ拡大時もタイトル / 閉じるボタンを常時視認できるようにするための分離。
   return ReactDOM.createPortal(
     <div onClick={requestClose} style={{
       position: 'fixed', inset: 0, zIndex: 100,
@@ -408,7 +414,12 @@ function ModalShell({ t, title, onClose, width = 520, children }) {
       transition: 'opacity 0.18s ease',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        width, maxHeight: '85vh', overflow: 'auto',
+        // --modal-max-h は文字サイズ切替時に zoom 倍率の逆数で更新される (v5-patches.jsx)。
+        // sm: 85vh / md: 76vh / lg: 68vh → どの文字サイズでも見た目 85vh 相当の余白を維持。
+        width,
+        ...(height ? { height } : {}),
+        maxHeight: 'var(--modal-max-h, 85vh)', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
         background: t.CARD, borderRadius: 14, padding: 24,
         border: `1px solid ${t.BORDER}`,
         boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
@@ -417,7 +428,7 @@ function ModalShell({ t, title, onClose, width = 520, children }) {
         transition: 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease',
         transformOrigin: 'center center',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexShrink: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: t.TEXT, letterSpacing: -0.3 }}>{title}</div>
           <button onClick={requestClose} style={{
             width: 28, height: 28, border: 'none', background: 'transparent',
@@ -427,7 +438,22 @@ function ModalShell({ t, title, onClose, width = 520, children }) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        {children}
+        <div style={{
+          flex: 1, minHeight: 0,
+          overflow: bodyScroll ? 'auto' : 'hidden',
+          ...(bodyScroll ? {} : { display: 'flex', flexDirection: 'column' }),
+        }}>
+          {children}
+        </div>
+        {footer && (
+          <div style={{
+            flexShrink: 0, marginTop: 16, paddingTop: 16,
+            borderTop: `1px solid ${t.BORDER}`,
+            display: 'flex', justifyContent: 'flex-end', gap: 8,
+          }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body
