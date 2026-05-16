@@ -66,27 +66,46 @@ function V4Report({ t, store }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT }}>日別作業時間</div>
           <div style={{ fontSize: 11, color: t.MUTED }}>2026/04/15 - 04/21</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 200, padding: '0 10px' }}>
-          {weekData.map((v, i) => {
-            const h = (v / maxDay) * 100;
-            const isToday = i === 1;
-            return (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: v > 0 ? t.TEXT : t.MUTED, fontFamily: '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif' }}>
-                  {v > 0 ? `${v.toFixed(1)}h` : '-'}
-                </div>
-                <div style={{
-                  width: '100%', height: `${h}%`, minHeight: v > 0 ? 8 : 2,
+        {/* バー領域と日付ラベル領域を分離（同列の flex 内で混在させると pct=100 付近で
+            flex-shrink によりバーが圧縮され、増減が非線形に見える現象を回避） */}
+        <div style={{ padding: '0 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 200 }}>
+            {weekData.map((v, i) => {
+              const h = (v / maxDay) * 100;
+              const isToday = i === 1;
+              return (
+                <div key={i} style={{
+                  flex: 1, height: `${h}%`, minHeight: v > 0 ? 8 : 2,
                   background: v === 0 ? t.SUBTLE : isToday ? t.ACCENT : `${t.ACCENT}88`,
                   borderRadius: '4px 4px 0 0',
                   border: isToday ? `1px solid ${t.ACCENT}` : 'none',
-                }} />
-                <div style={{ fontSize: 10, color: isToday ? t.ACCENT : t.MUTED, fontWeight: isToday ? 700 : 500 }}>
+                  position: 'relative',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: -18, left: 0, right: 0,
+                    textAlign: 'center', fontSize: 10, fontWeight: 600,
+                    color: v > 0 ? t.TEXT : t.MUTED,
+                    fontFamily: '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif',
+                  }}>
+                    {v > 0 ? `${v.toFixed(1)}h` : '-'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+            {weekData.map((v, i) => {
+              const isToday = i === 1;
+              return (
+                <div key={i} style={{
+                  flex: 1, textAlign: 'center',
+                  fontSize: 10, color: isToday ? t.ACCENT : t.MUTED, fontWeight: isToday ? 700 : 500,
+                }}>
                   {weekLabels[i]}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -461,14 +461,16 @@ function ModalShell({ t, title, onClose, width = 520, height, bodyScroll = true,
 }
 
 function Field({ t, label, hint, required, children }) {
+  // ラベルとヒントは原則横並び、収まらない場合のみヒントだけ次行に折返す。
+  // ラベル側は flexShrink: 0 + whiteSpace nowrap で常に1行に保つ（文字拡大時の不自然な改行を防止）。
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: t.TEXT }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: t.TEXT, flexShrink: 0, whiteSpace: 'nowrap' }}>
           {label}
           {required && <span style={{ color: t.ACCENT, marginLeft: 4 }}>*</span>}
         </label>
-        {hint && <span style={{ fontSize: 10, color: t.MUTED }}>{hint}</span>}
+        {hint && <span style={{ fontSize: 10, color: t.MUTED, flex: '1 1 auto', minWidth: 0 }}>{hint}</span>}
       </div>
       {children}
     </div>

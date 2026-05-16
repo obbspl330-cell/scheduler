@@ -36,6 +36,56 @@
   animation-duration: 0.32s;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
+/* スライダー (range input) のカスタムスタイル
+   ブラウザ既定の dark gray な枠 / focus outline を除去し、
+   テーマ色 (--slider-thumb / --slider-track) で薄いトラック + 円形 thumb に統一 */
+.v5-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  box-sizing: border-box;
+  height: 18px;
+  background: transparent;
+  outline: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.v5-range:focus { outline: none; }
+.v5-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--slider-track, rgba(0,0,0,0.1));
+  border-radius: 2px;
+  border: none;
+}
+.v5-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--slider-thumb, #f97316);
+  margin-top: -5px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.v5-range::-moz-range-track {
+  height: 4px;
+  background: var(--slider-track, rgba(0,0,0,0.1));
+  border-radius: 2px;
+  border: none;
+}
+.v5-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--slider-thumb, #f97316);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
 `;
   document.head.appendChild(s);
 })();
@@ -353,21 +403,22 @@ window.V4PomoSetup = function V4PomoSetupV5({ t, store, onStart, onClose }) {
     onStart({ projectId, procType, settings: s });
   };
 
-  const Num = ({ label, value, set, min, max, unit, divider }) => (
+  // step: 増減の単位 (デフォルト 1)。時間系は 5 単位 / セット数は 1 単位を想定
+  const Num = ({ label, value, set, min, max, unit, divider, step = 1 }) => (
     <div style={{ flex: 1, padding: '10px 6px',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       borderLeft: divider ? `1px solid ${t.BORDER}` : 'none',
     }}>
       <div style={{ fontSize: 10, color: t.MUTED, fontWeight: 600, letterSpacing: 0.4 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <button onClick={() => set(Math.max(min, value - 1))} style={{
+        <button onClick={() => set(Math.max(min, value - step))} style={{
           width: 24, height: 24, border: `1px solid ${t.BORDER}`, background: t.CARD,
           color: t.TEXT, borderRadius: 5, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', flexShrink: 0,
         }}>−</button>
         <div style={{ minWidth: 44, fontSize: 20, fontWeight: 700, fontFamily: POMO_FUTURA_FF, color: t.TEXT, textAlign: 'center', letterSpacing: -0.5 }}>
           {value}<span style={{ fontSize: 10, color: t.MUTED, fontWeight: 400, marginLeft: 2 }}>{unit}</span>
         </div>
-        <button onClick={() => set(Math.min(max, value + 1))} style={{
+        <button onClick={() => set(Math.min(max, value + step))} style={{
           width: 24, height: 24, border: `1px solid ${t.BORDER}`, background: t.CARD,
           color: t.TEXT, borderRadius: 5, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', flexShrink: 0,
         }}>+</button>
@@ -434,16 +485,16 @@ window.V4PomoSetup = function V4PomoSetupV5({ t, store, onStart, onClose }) {
         display: 'flex', marginBottom: 10,
         background: t.SUBTLE, borderRadius: 10, overflow: 'hidden',
       }}>
-        <Num label="作業" value={s.workMin} set={v => setS({...s, workMin: v})} min={5} max={120} unit="分" />
-        <Num label="休憩" value={s.breakMin} set={v => setS({...s, breakMin: v})} min={1} max={30} unit="分" divider />
-        <Num label="長休憩" value={s.longBreakMin} set={v => setS({...s, longBreakMin: v})} min={5} max={60} unit="分" divider />
+        <Num label="作業" value={s.workMin} set={v => setS({...s, workMin: v})} min={5} max={120} unit="分" step={5} />
+        <Num label="休憩" value={s.breakMin} set={v => setS({...s, breakMin: v})} min={1} max={30} unit="分" step={5} divider />
+        <Num label="長休憩" value={s.longBreakMin} set={v => setS({...s, longBreakMin: v})} min={5} max={60} unit="分" step={5} divider />
         <Num label="セット数" value={s.sets} set={v => setS({...s, sets: v})} min={1} max={8} unit="回" divider />
       </div>
 
       {/* プログレスバー（左寄せ・固定幅）+ 合計（右寄せ） */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 22 }}>
         <div style={{
-          width: 360, height: 6, borderRadius: 3, background: t.SUBTLE,
+          width: 330, height: 6, borderRadius: 3, background: t.SUBTLE,
           display: 'flex', overflow: 'hidden', flexShrink: 0,
         }}>
           <div style={{ flex: workTotalMin, background: t.ACCENT }} />
@@ -2412,6 +2463,20 @@ window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQ
     try { localStorage.setItem(FONT_SCALE_KEY, fontScale); } catch (e) {}
   }, [fontScale]);
 
+  // テーマピッカードロップダウン: 外側クリックで自動クローズ
+  // → 設定 / 集中モード / サイドバー切替 / 他モーダル展開などをすると自然に閉じる
+  const themePickerRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!themeOpen) return;
+    const onDown = (e) => {
+      if (themePickerRef.current && !themePickerRef.current.contains(e.target)) {
+        setThemeOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [themeOpen]);
+
   // Ctrl+Z / Ctrl+Shift+Z (Mac は Meta) を document レベルでキャプチャ
   // input/textarea/contentEditable にフォーカス中はブラウザのネイティブ undo を優先
   const storeRef = React.useRef(store);
@@ -2538,7 +2603,7 @@ window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQ
         })}
       </div>
 
-      <div style={{ position: 'relative' }}>
+      <div ref={themePickerRef} style={{ position: 'relative' }}>
         <button onClick={() => setThemeOpen(!themeOpen)} style={{
           padding: '5px 8px', border: `1px solid ${t.BORDER}`, borderRadius: 6,
           background: t.CARD, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
@@ -2986,26 +3051,42 @@ window.V3Todos = function V3TodosV5({ t }) {
 
 // ============ 9. V3TypeAverages を完了案件ベースで算出 ============
 const _origTypeAverages = window.V3TypeAverages;
-window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setSelectedType, logs }) {
+window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setSelectedType, logs, flush }) {
   const typesStore = (store && store.types) || PROJECT_TYPES;
   const projectsAll = (store && store.projects) || PROJECTS;
   const completedAll = projectsAll.filter(p => (p.boardStatus || computedBoardStatus(p)) === 'done');
-  const completedOfType = completedAll.filter(p => p.typeId === selectedType);
-  const projectsOfType = projectsAll.filter(p => p.typeId === selectedType);
+  // 「全タイプ」タブの選択値。旧 工程別累計 をここに統合
+  const ALL_KEY = '__all__';
+  const isAll = selectedType === ALL_KEY;
+  const completedOfType = isAll ? completedAll : completedAll.filter(p => p.typeId === selectedType);
+  const projectsOfType = isAll ? projectsAll : projectsAll.filter(p => p.typeId === selectedType);
 
   // 集計の取り方
-  // - logs (期間フィルタ済み) があれば: 期間内に作業ログがある対象タイプの案件 ×工程ごとに sum/count → 平均
-  // - 無ければ従来通り: 完了案件のみ pr.actualH ベース
+  // - 全タイプ選択時: 工程ごとの累計 (h) を全タイプ横断で
+  // - 個別タイプ選択時:
+  //   - logs (期間フィルタ済み) があれば 期間内ログから 1案件あたりの平均
+  //   - 無ければ完了案件の pr.actualH ベース
   const useLogs = Array.isArray(logs);
   const sumByType = {};
   const countByType = {};
-  if (useLogs) {
-    const projIdsInRange = new Set();
+  if (isAll) {
+    // 全タイプ: 工程 (procType) ごとの累計時間。logs があれば logs ベース、無ければ projects 全体の pr.actualH
+    if (useLogs) {
+      logs.forEach(l => {
+        sumByType[l.type] = (sumByType[l.type] || 0) + (Number(l.hours) || 0);
+      });
+    } else {
+      projectsAll.forEach(p => {
+        p.processes.forEach(pr => {
+          sumByType[pr.type] = (sumByType[pr.type] || 0) + (Number(pr.actualH) || 0);
+        });
+      });
+    }
+  } else if (useLogs) {
     const projIdsHasType = {}; // procType -> Set(projectId)
     const typeIdSet = new Set(projectsOfType.map(p => p.id));
     logs.forEach(l => {
       if (!typeIdSet.has(l.projectId)) return;
-      projIdsInRange.add(l.projectId);
       if (!projIdsHasType[l.type]) projIdsHasType[l.type] = new Set();
       projIdsHasType[l.type].add(l.projectId);
       sumByType[l.type] = (sumByType[l.type] || 0) + (Number(l.hours) || 0);
@@ -3021,34 +3102,67 @@ window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setS
       });
     });
   }
+  // 個別タイプは「1案件あたりの平均」、全タイプは累計をそのまま表示
   const avg = {};
   Object.keys(sumByType).forEach(k => {
-    avg[k] = countByType[k] > 0 ? sumByType[k] / countByType[k] : 0;
+    if (isAll) {
+      avg[k] = sumByType[k];
+    } else {
+      avg[k] = countByType[k] > 0 ? sumByType[k] / countByType[k] : 0;
+    }
   });
 
-  // データが無ければ参考用デフォルト
-  const hasData = Object.keys(avg).length > 0;
-  const displayAvg = hasData ? avg : (TYPE_PROCESS_AVG[selectedType] || {});
+  // データが無ければ参考用デフォルト (個別タイプのみ)
+  const hasData = Object.values(avg).some(v => v > 0);
+  const displayAvg = hasData
+    ? avg
+    : (isAll ? {} : (TYPE_PROCESS_AVG[selectedType] || {}));
   const types = Object.keys(displayAvg);
   const maxV = Math.max(...types.map(k => displayAvg[k]), 0.01);
   const total = types.reduce((s, k) => s + displayAvg[k], 0);
-  const typeInfo = typesStore[selectedType] || PROJECT_TYPES[selectedType];
+  const typeInfo = isAll ? null : (typesStore[selectedType] || PROJECT_TYPES[selectedType]);
+  const cardTitle = isAll ? '工程別 · 累計作業時間' : '案件タイプ別 · 工程平均作業時間';
+  const subText = (() => {
+    if (isAll) {
+      return useLogs
+        ? `期間内の作業ログから工程ごとの累計時間を算出 (全タイプ合算)。`
+        : `全期間の実績 (案件編集の予定/実績) を工程ごとに累計 (全タイプ合算)。`;
+    }
+    return hasData
+      ? `完了案件 ${completedOfType.length} 件の実績から算出。見積もり時の参考に。`
+      : '完了案件が未登録のため参考値を表示中（案件編集からステータスを「完了」にすると実績ベースに切り替わります）。';
+  })();
 
   return (
     <div style={{
-      margin: '0 20px 14px', background: t.CARD,
+      // flush=true 時は親側で配置 (margin 干渉防止)
+      margin: flush ? 0 : '0 20px 14px',
+      background: t.CARD,
       border: `1px solid ${t.BORDER}`, borderRadius: 10, padding: '14px 16px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT }}>案件タイプ別 · 工程平均作業時間</div>
-          <div style={{ fontSize: 11, color: t.MUTED, marginTop: 2 }}>
-            {hasData
-              ? `完了案件 ${completedOfType.length} 件の実績から算出。見積もり時の参考に。`
-              : '完了案件が未登録のため参考値を表示中（案件編集からステータスを「完了」にすると実績ベースに切り替わります）。'}
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT }}>{cardTitle}</div>
+          <div style={{ fontSize: 11, color: t.MUTED, marginTop: 2 }}>{subText}</div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* 「全タイプ」タブ: 旧 工程別累計の役割を担う */}
+          {(() => {
+            const active = isAll;
+            return (
+              <button onClick={() => setSelectedType(ALL_KEY)} style={{
+                padding: '5px 10px', borderRadius: 6,
+                border: `1px solid ${active ? t.ACCENT : t.BORDER}`,
+                background: active ? `${t.ACCENT}15` : t.CARD,
+                color: active ? t.ACCENT : t.MUTED,
+                fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: t.ACCENT }} />
+                全タイプ
+              </button>
+            );
+          })()}
           {Object.values(typesStore).map(ty => {
             const active = ty.id === selectedType;
             const tc = typeColor(ty);
@@ -3098,7 +3212,7 @@ window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setS
                     <span style={{ fontSize: 11.5, color: t.TEXT, fontWeight: 500 }}>{PROCESS_COLORS[k]?.name || k}</span>
                   </div>
                   <span style={{ fontSize: 11, color: t.TEXT, fontFamily: '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif', fontWeight: 600 }}>
-                    {v.toFixed(1)}<span style={{ fontSize: 9, color: t.MUTED, fontWeight: 400 }}>h / 案件</span>
+                    {v.toFixed(1)}<span style={{ fontSize: 9, color: t.MUTED, fontWeight: 400 }}>{isAll ? 'h' : 'h / 案件'}</span>
                   </span>
                 </div>
                 <div style={{ height: 8, background: t.SUBTLE, borderRadius: 3, overflow: 'hidden' }}>
@@ -3113,23 +3227,31 @@ window.V3TypeAverages = function V3TypeAveragesV5({ t, store, selectedType, setS
         </div>
         <div style={{ padding: '12px 14px', background: t.SUBTLE, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: typeInfo ? typeColor(typeInfo) : t.ACCENT }} />
-            <div style={{ fontSize: 12, fontWeight: 600, color: t.TEXT }}>{typeInfo?.name || selectedType}</div>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: isAll ? t.ACCENT : (typeInfo ? typeColor(typeInfo) : t.ACCENT) }} />
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.TEXT }}>{isAll ? '全タイプ' : (typeInfo?.name || selectedType)}</div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: t.MUTED, marginBottom: 2 }}>
-              {useLogs ? '平均合計（期間内）' : (hasData ? '平均合計（完了案件）' : '平均合計（参考値）')}
+              {isAll
+                ? (useLogs ? '累計時間（期間内）' : '累計時間（全期間）')
+                : (useLogs ? '平均合計（期間内）' : (hasData ? '平均合計（完了案件）' : '平均合計（参考値）'))}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: t.TEXT, fontFamily: '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif', letterSpacing: 0 }}>
-              {total.toFixed(1)}<span style={{ fontSize: 11, color: t.MUTED, marginLeft: 3 }}>h / 件</span>
+              {total.toFixed(1)}<span style={{ fontSize: 11, color: t.MUTED, marginLeft: 3 }}>{isAll ? 'h' : 'h / 件'}</span>
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 10, color: t.MUTED, marginBottom: 2 }}>{useLogs ? '期間内に作業 / 該当案件' : '完了 / 該当案件'}</div>
+            <div style={{ fontSize: 10, color: t.MUTED, marginBottom: 2 }}>
+              {isAll
+                ? '完了 / 全案件'
+                : (useLogs ? '期間内に作業 / 該当案件' : '完了 / 該当案件')}
+            </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: t.TEXT }}>
-              {useLogs
-                ? (Math.max(...Object.values(countByType), 0))
-                : completedOfType.length}
+              {isAll
+                ? completedAll.length
+                : (useLogs
+                    ? (Math.max(...Object.values(countByType), 0))
+                    : completedOfType.length)}
               <span style={{ fontSize: 10, color: t.MUTED, fontWeight: 400 }}> / {projectsOfType.length}件</span>
             </div>
           </div>
@@ -3260,6 +3382,9 @@ function V5GreetingIconEditor({ t, onClose, onSaved }) {
   const [tx, setTx] = React.useState(0);
   const [ty, setTy] = React.useState(0);
   const [bg, setBg] = React.useState(() => loadGreetingIconBg()); // 'accent' | 'white'
+  // 現在保存されているアイコンの有無 (初期化ボタンの表示判定用)
+  const currentGreeting = window.useGreetingIcon ? window.useGreetingIcon() : { url: null };
+  const hasCurrent = !!currentGreeting.url;
 
   // 画像が小さくフレーム内に収まる場合は自由配置、フレームを覆っている場合はカバーを保つ
   const clamp = (nx, ny, sc, dim) => {
@@ -3419,13 +3544,13 @@ function V5GreetingIconEditor({ t, onClose, onSaved }) {
                 }} />
             </div>
 
-            {/* 横の操作 + プレビュー */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
+            {/* 横の操作 + プレビュー (minWidth: 0 で flex 子要素の minContent 押し出しを抑止) */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 10, color: t.MUTED, marginBottom: 6, fontWeight: 600 }}>サイズ</div>
-                <input type="range" min={minScale} max={maxScale} step={0.01} value={scale}
+                <input type="range" className="v5-range" min={minScale} max={maxScale} step={0.01} value={scale}
                   onChange={(e) => onScale(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: t.ACCENT }} />
+                  style={{ '--slider-thumb': t.ACCENT, '--slider-track': t.SUBTLE }} />
                 <div style={{ fontSize: 9, color: t.MUTED, marginTop: 4, lineHeight: 1.5 }}>
                   最小まで縮めると画像の周りに余白ができます（透過 PNG 用）
                 </div>
@@ -3495,15 +3620,33 @@ function V5GreetingIconEditor({ t, onClose, onSaved }) {
       )}
 
       <div style={{
-        display: 'flex', justifyContent: 'flex-end', gap: 8,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
         marginTop: 18, paddingTop: 14, borderTop: `1px solid ${t.BORDER}`,
       }}>
-        <button onClick={onClose} style={buttonStyle(t, 'ghost')}>キャンセル</button>
-        <button onClick={save} disabled={!imgSrc} style={{
-          ...buttonStyle(t, 'primary'),
-          opacity: imgSrc ? 1 : 0.4,
-          cursor: imgSrc ? 'pointer' : 'default',
-        }}>保存</button>
+        {/* 左: 初期化 (既存アイコンがある場合のみ表示) */}
+        <div>
+          {hasCurrent && (
+            <button onClick={() => {
+              if (confirm('アップロードした画像を削除してデフォルト (☕) に戻しますか？')) {
+                saveGreetingIcon(null, 'accent');
+                onClose();
+              }
+            }} style={{
+              padding: '6px 10px', fontSize: 11, fontWeight: 500,
+              border: `1px solid ${t.BORDER}`, background: 'transparent',
+              color: t.MUTED, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+            }}>初期化</button>
+          )}
+        </div>
+        {/* 右: キャンセル / 保存 */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={buttonStyle(t, 'ghost')}>キャンセル</button>
+          <button onClick={save} disabled={!imgSrc} style={{
+            ...buttonStyle(t, 'primary'),
+            opacity: imgSrc ? 1 : 0.4,
+            cursor: imgSrc ? 'pointer' : 'default',
+          }}>保存</button>
+        </div>
       </div>
     </ModalShell>
   );
@@ -3564,7 +3707,7 @@ function V5HomeSettingsBody({ t }) {
             padding: '6px 10px', fontSize: 11, fontWeight: 500,
             border: `1px solid ${t.BORDER}`, background: 'transparent',
             color: t.MUTED, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
-          }}>クリア</button>
+          }}>初期化</button>
         )}
       </div>
 
@@ -4125,87 +4268,211 @@ function V5DashboardRow({ t, store, selectedType, setSelectedType, logs }) {
 window.V5ProjectSummary = V5ProjectSummary;
 window.V5DashboardRow = V5DashboardRow;
 
-// ============ 13.5 日別作業時間チャート（今週 月-日 / store.logs から実データ集計） ============
+// ============ 13.5 作業時間チャート（期間トグル対応 / store.logs から実データ集計） ============
+// range: 'week' → 7日 (月-日)、'month' → その月の日別、'year' → 月別 12本
+// 選択した期間は localStorage 'v5.dailyChart.range' に永続化
+const DAILY_CHART_RANGE_KEY = 'v5.dailyChart.range';
 function V5DailyHoursChart({ t, store }) {
   const FF = '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif';
   const pad = (n) => String(n).padStart(2, '0');
   const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+  const [range, setRange] = React.useState(() => {
+    try {
+      const v = localStorage.getItem(DAILY_CHART_RANGE_KEY);
+      if (v === 'week' || v === 'month' || v === 'year') return v;
+    } catch (e) {}
+    return 'week';
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(DAILY_CHART_RANGE_KEY, range); } catch (e) {}
+  }, [range]);
+
   // render 時に再計算（モジュールロード時の TODAY が日付をまたいで stale になるのを防ぐ）
   const today = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
-  // 月曜起点でその週の月曜を求める（getDay: 0=日, 1=月, ..., 6=土）
-  const dow = today.getDay();
-  const daysFromMon = dow === 0 ? 6 : dow - 1;
-  const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysFromMon);
-  const labels = ['月', '火', '水', '木', '金', '土', '日'];
   const todayKey = dateKey(today);
-
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i);
-    return { date: d, key: dateKey(d), isToday: dateKey(d) === todayKey };
-  });
-  // 各ログの該当日付を求めて合算
   const logs = store?.logs || [];
-  const sums = days.map(() => 0);
-  logs.forEach(l => {
-    let lk = l.date;
-    if (!lk && l.createdAt) {
-      const d = new Date(l.createdAt);
-      if (!isNaN(d.getTime())) lk = dateKey(d);
+
+  // バケツ生成 + ログ集計（range に応じて粒度を切替）
+  // buckets: { label, sub?, value, isCurrent, fullLabel }
+  const buckets = [];
+  let title, totalLabel, rangeLabel;
+
+  if (range === 'week') {
+    title = '日別作業時間';
+    totalLabel = '今週合計';
+    const dow = today.getDay();
+    const daysFromMon = dow === 0 ? 6 : dow - 1;
+    const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysFromMon);
+    const labels = ['月', '火', '水', '木', '金', '土', '日'];
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i);
+      return { date: d, key: dateKey(d) };
+    });
+    const sums = days.map(() => 0);
+    logs.forEach(l => {
+      let lk = l.date;
+      if (!lk && l.createdAt) {
+        const d = new Date(l.createdAt);
+        if (!isNaN(d.getTime())) lk = dateKey(d);
+      }
+      if (!lk) return;
+      const idx = days.findIndex(x => x.key === lk);
+      if (idx >= 0) sums[idx] += Number(l.hours) || 0;
+    });
+    days.forEach((d, i) => {
+      buckets.push({
+        label: labels[i],
+        sub: `${d.date.getMonth()+1}/${pad(d.date.getDate())}`,
+        value: Math.round(sums[i] * 10) / 10,
+        isCurrent: d.key === todayKey,
+        fullLabel: `${labels[i]} ${d.date.getMonth()+1}/${d.date.getDate()}`,
+      });
+    });
+    rangeLabel = `${weekStart.getFullYear()}/${pad(weekStart.getMonth()+1)}/${pad(weekStart.getDate())} - ${pad(days[6].date.getMonth()+1)}/${pad(days[6].date.getDate())}`;
+  } else if (range === 'month') {
+    title = '日別作業時間';
+    totalLabel = '今月合計';
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const daysCount = Math.round((monthEnd - monthStart) / 86400000);
+    const sums = {};
+    logs.forEach(l => {
+      let lk = l.date;
+      if (!lk && l.createdAt) {
+        const d = new Date(l.createdAt);
+        if (!isNaN(d.getTime())) lk = dateKey(d);
+      }
+      if (!lk) return;
+      const [y, m] = lk.split('-').map(Number);
+      if (y === monthStart.getFullYear() && (m - 1) === monthStart.getMonth()) {
+        sums[lk] = (sums[lk] || 0) + (Number(l.hours) || 0);
+      }
+    });
+    for (let i = 0; i < daysCount; i++) {
+      const d = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1 + i);
+      const k = dateKey(d);
+      buckets.push({
+        label: String(d.getDate()),
+        value: Math.round((sums[k] || 0) * 10) / 10,
+        isCurrent: k === todayKey,
+        fullLabel: `${d.getMonth()+1}/${d.getDate()}`,
+      });
     }
-    if (!lk) return;
-    const idx = days.findIndex(x => x.key === lk);
-    if (idx >= 0) sums[idx] += Number(l.hours) || 0;
-  });
-  const weekData = sums.map(v => Math.round(v * 10) / 10);
-  const totalWeek = weekData.reduce((a, b) => a + b, 0);
-  const maxDay = Math.max(...weekData, 0.01);
-  const fmtMD = (d) => `${d.getMonth()+1}/${pad(d.getDate())}`;
-  const rangeLabel = `${weekStart.getFullYear()}/${pad(weekStart.getMonth()+1)}/${pad(weekStart.getDate())} - ${pad(days[6].date.getMonth()+1)}/${pad(days[6].date.getDate())}`;
+    rangeLabel = `${monthStart.getFullYear()}年${monthStart.getMonth()+1}月`;
+  } else {
+    title = '月別作業時間';
+    totalLabel = '今年合計';
+    const y = today.getFullYear();
+    const sums = new Array(12).fill(0);
+    logs.forEach(l => {
+      let lk = l.date;
+      if (!lk && l.createdAt) {
+        const d = new Date(l.createdAt);
+        if (!isNaN(d.getTime())) lk = dateKey(d);
+      }
+      if (!lk) return;
+      const [ly, lm] = lk.split('-').map(Number);
+      if (ly === y) sums[lm - 1] += (Number(l.hours) || 0);
+    });
+    for (let m = 0; m < 12; m++) {
+      buckets.push({
+        label: String(m + 1),
+        value: Math.round(sums[m] * 10) / 10,
+        isCurrent: m === today.getMonth(),
+        fullLabel: `${y}年${m+1}月`,
+      });
+    }
+    rangeLabel = `${y}年`;
+  }
+
+  const totalAll = buckets.reduce((s, b) => s + b.value, 0);
+  const maxV = Math.max(...buckets.map(b => b.value), 0.01);
+  // バー本数に応じて gap を調整 (多いほど狭く)
+  const gap = buckets.length > 20 ? 2 : buckets.length > 12 ? 4 : 10;
+  // ラベル間引き (日別 28-31本のみ)
+  const labelEvery = buckets.length > 20 ? 5 : 1;
+
+  const RangeBtn = ({ value, label }) => {
+    const active = range === value;
+    return (
+      <button onClick={() => setRange(value)} style={{
+        padding: '4px 10px', border: 'none', borderRadius: 4,
+        background: active ? t.CARD : 'transparent',
+        color: active ? t.ACCENT : t.MUTED,
+        fontSize: 10.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+      }}>{label}</button>
+    );
+  };
 
   return (
     <div style={{ margin: '0 20px 14px', background: t.CARD, border: `1px solid ${t.BORDER}`, borderRadius: 10, padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT }}>日別作業時間</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT }}>{title}</div>
           <div style={{ fontSize: 11, color: t.MUTED }}>
-            今週合計 <span style={{ color: t.ACCENT, fontWeight: 700, fontFamily: FF }}>{totalWeek.toFixed(1)}<span style={{ fontSize: 9, marginLeft: 2 }}>h</span></span>
+            {totalLabel} <span style={{ color: t.ACCENT, fontWeight: 700, fontFamily: FF }}>{totalAll.toFixed(1)}<span style={{ fontSize: 9, marginLeft: 2 }}>h</span></span>
           </div>
         </div>
-        <div style={{ fontSize: 11, color: t.MUTED, fontFamily: FF }}>{rangeLabel}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 11, color: t.MUTED, fontFamily: FF }}>{rangeLabel}</div>
+          <div style={{ display: 'flex', gap: 2, background: t.SUBTLE, borderRadius: 5, padding: 2 }}>
+            <RangeBtn value="week" label="週" />
+            <RangeBtn value="month" label="月" />
+            <RangeBtn value="year" label="年" />
+          </div>
+        </div>
       </div>
-      {/* バー高さ: 親に明示的な高さを与えて %を解決させる */}
-      <div style={{ display: 'flex', gap: 10, height: 200, padding: '0 6px' }}>
-        {weekData.map((v, i) => {
-          const pct = (v / maxDay) * 100;
-          const isToday = days[i].isToday;
-          const minH = v > 0 ? 8 : 2;
-          return (
-            <div key={i} style={{
-              flex: 1, height: '100%',
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'flex-end', gap: 6,
-            }}>
-              <div style={{
-                width: '100%', height: `${pct}%`, minHeight: minH,
-                background: v === 0 ? t.SUBTLE : isToday ? t.ACCENT : `${t.ACCENT}88`,
+      {/* バー領域と日付ラベル領域を分離。同じカラム内に flex で混在させると、
+          pct=100 付近で flex-shrink によりバーが圧縮されて非線形に見える現象が出るため、
+          バー領域だけを 200px の独立コンテナにして高さの % を純粋に解決させる */}
+      <div style={{ padding: '0 6px' }}>
+        <div style={{ display: 'flex', gap, height: 200, alignItems: 'flex-end' }}>
+          {buckets.map((b, i) => {
+            const pct = (b.value / maxV) * 100;
+            const minH = b.value > 0 ? 6 : 2;
+            return (
+              <div key={i} title={`${b.fullLabel}: ${b.value.toFixed(1)}h`} style={{
+                flex: 1, height: `${pct}%`, minHeight: minH,
+                background: b.value === 0 ? t.SUBTLE : b.isCurrent ? t.ACCENT : `${t.ACCENT}88`,
                 borderRadius: '4px 4px 0 0',
-                border: isToday ? `1px solid ${t.ACCENT}` : 'none',
+                border: b.isCurrent ? `1px solid ${t.ACCENT}` : 'none',
                 position: 'relative',
               }}>
-                <div style={{
-                  position: 'absolute', top: -18, left: 0, right: 0,
-                  textAlign: 'center', fontSize: 10, fontWeight: 600,
-                  color: v > 0 ? t.TEXT : t.MUTED, fontFamily: FF,
-                }}>
-                  {v > 0 ? `${v.toFixed(1)}h` : '-'}
-                </div>
+                {/* バー本数が多い時は値ラベルを省略 (current / 今日 だけ表示) */}
+                {(buckets.length <= 12 || b.isCurrent) && (
+                  <div style={{
+                    position: 'absolute', top: -18, left: 0, right: 0,
+                    textAlign: 'center', fontSize: 10, fontWeight: 600,
+                    color: b.value > 0 ? t.TEXT : t.MUTED, fontFamily: FF, whiteSpace: 'nowrap',
+                  }}>
+                    {b.value > 0 ? `${b.value.toFixed(1)}h` : '-'}
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 10, color: isToday ? t.ACCENT : t.MUTED, fontWeight: isToday ? 700 : 500 }}>
-                {labels[i]}<span style={{ fontSize: 9, opacity: 0.55, marginLeft: 3, fontFamily: FF }}>{fmtMD(days[i].date)}</span>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', gap, marginTop: 6 }}>
+          {buckets.map((b, i) => {
+            const showLabel = labelEvery === 1 || i === 0 || i === buckets.length - 1 || (i + 1) % labelEvery === 0;
+            return (
+              <div key={i} style={{
+                flex: 1, textAlign: 'center',
+                fontSize: 10, color: b.isCurrent ? t.ACCENT : t.MUTED,
+                fontWeight: b.isCurrent ? 700 : 500,
+                whiteSpace: 'nowrap', overflow: 'hidden',
+              }}>
+                {showLabel ? (
+                  <>
+                    {b.label}
+                    {b.sub && <span style={{ fontSize: 9, opacity: 0.55, marginLeft: 3, fontFamily: FF }}>{b.sub}</span>}
+                  </>
+                ) : ''}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -5847,7 +6114,8 @@ window.V5TypeDistribution = V5TypeDistribution;
 const _origV4Report = window.V4Report;
 window.V4Report = function V4ReportV5({ t, store }) {
   const [range, setRange] = React.useState('year');
-  const [selectedType, setSelectedType] = React.useState('oneillust');
+  // デフォルトは「全タイプ」(旧 工程別累計 と同じ視点)、タイプ別の細部はタブで切替
+  const [selectedType, setSelectedType] = React.useState('__all__');
 
   // 'total' は累計（全期間、pr.actualH ベース）。他は logs の期間フィルタ
   const useAllTime = range === 'total';
@@ -5902,12 +6170,78 @@ window.V4Report = function V4ReportV5({ t, store }) {
         <div style={{ fontSize: 11, color: t.MUTED, marginTop: 2 }}>作業時間の内訳と傾向</div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
-        <ReportStat t={t} label="今週の作業時間" value={totalWeek.toFixed(1)} unit="h" sub={`目標 25h / ${Math.round((totalWeek / 25) * 100)}%`} trend="" />
-        <ReportStat t={t} label="稼働日数" value="6" unit="日" sub="平均 3.9h / 日" trend="休息1日" />
-        <ReportStat t={t} label="完了工程" value="3" unit="件" sub="構図ラフ × 3" trend="進行中17" />
-        <ReportStat t={t} label="最長集中" value="5.0" unit="h" sub="水 · 線画・基礎塗り" trend="👑" />
-      </div>
+      {(() => {
+        // KPI カード用の今週ベース指標（期間トグルとは独立、常に「今週月-日」を見せる）
+        const pad = (n) => String(n).padStart(2, '0');
+        const dk = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const realToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+        const dow = realToday.getDay();
+        const off = dow === 0 ? 6 : dow - 1;
+        const ws = new Date(realToday.getFullYear(), realToday.getMonth(), realToday.getDate() - off);
+        const we = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate() + 7);
+        const logDk = (l) => {
+          if (l.date) return l.date;
+          if (l.createdAt) {
+            const d = new Date(l.createdAt);
+            if (!isNaN(d.getTime())) return dk(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+          }
+          return null;
+        };
+        const weekLogs = (store?.logs || []).filter(l => {
+          const k = logDk(l);
+          return k && k >= dk(ws) && k < dk(we);
+        });
+        // 稼働日数 = 今週 hours>0 の異なる日付数
+        const activeDates = new Set();
+        weekLogs.forEach(l => { if ((Number(l.hours) || 0) > 0) activeDates.add(logDk(l)); });
+        const activeDays = activeDates.size;
+        const avgPerActiveDay = activeDays > 0 ? totalWeek / activeDays : 0;
+        // 完了案件 = 今月「完了日」が入る案件数（全体）
+        // 完了は週単位だと発生が稀なため、他カード (週ベース) とは別軸の「月ベース」で集計
+        const projects = store?.projects || [];
+        const isDoneOf = (p) => (p.boardStatus || (typeof computedBoardStatus === 'function' ? computedBoardStatus(p) : 'todo')) === 'done';
+        const monthStart = new Date(realToday.getFullYear(), realToday.getMonth(), 1);
+        const monthEnd = new Date(realToday.getFullYear(), realToday.getMonth() + 1, 1);
+        const completedThisMonth = projects.filter(p => {
+          if (!isDoneOf(p)) return false;
+          const d = projectCompletionDate(p);
+          return d && d >= monthStart && d < monthEnd;
+        }).length;
+        const completedTotal = projects.filter(isDoneOf).length;
+        // 最長集中 = 今週内で (日付 × 案件 × 工程) ごとの合計が最も大きい組
+        const focusMap = {};
+        weekLogs.forEach(l => {
+          const k = `${logDk(l)}::${l.projectId}::${l.type}`;
+          focusMap[k] = (focusMap[k] || 0) + (Number(l.hours) || 0);
+        });
+        let topKey = null, topVal = 0;
+        Object.entries(focusMap).forEach(([k, v]) => { if (v > topVal) { topVal = v; topKey = k; } });
+        let focusSub = '今週の記録なし';
+        if (topKey && topVal > 0) {
+          const [date, pid, type] = topKey.split('::');
+          const proj = projects.find(p => p.id === pid);
+          const procName = PROCESS_COLORS[type]?.name || type;
+          const dn = proj ? (store?.displayName ? store.displayName(proj) : proj.name) : '';
+          const wkLabel = ['日','月','火','水','木','金','土'][new Date(date.replace(/-/g, '/')).getDay()];
+          focusSub = dn ? `${wkLabel} · ${procName}` : procName;
+        }
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+            <ReportStat t={t} label="今週の作業時間" value={totalWeek.toFixed(1)} unit="h"
+              sub={`目標 25h / ${Math.round((totalWeek / 25) * 100)}%`}
+              trend={totalWeek >= 25 ? '達成' : '進行中'} />
+            <ReportStat t={t} label="稼働日数" value={String(activeDays)} unit="日"
+              sub={activeDays > 0 ? `平均 ${avgPerActiveDay.toFixed(1)}h / 稼働日` : '記録なし'}
+              trend={activeDays > 0 ? `休息${7 - activeDays}日` : ''} />
+            <ReportStat t={t} label="今月の完了案件" value={String(completedThisMonth)} unit="件"
+              sub={completedTotal > 0 ? `累計 ${completedTotal} 件` : '累計 0 件'}
+              trend="" />
+            <ReportStat t={t} label="最長集中" value={topVal > 0 ? topVal.toFixed(1) : '—'} unit={topVal > 0 ? 'h' : ''}
+              sub={focusSub}
+              trend={topVal > 0 ? '👑' : ''} />
+          </div>
+        );
+      })()}
 
       {/* 期間別の集計（4 ブロックすべてを期間フィルタの対象にする） */}
       <div style={{
@@ -5934,45 +6268,22 @@ window.V4Report = function V4ReportV5({ t, store }) {
         </div>
       </div>
 
-      {/* 案件別サマリー + 案件タイプ別・工程平均
-          useAllTime 時は logs={undefined} で全期間 pr.actualH ベース集計に切替 */}
-      <div style={{ margin: '0 -20px' }}>
-        <V5DashboardRow t={t} store={store} selectedType={selectedType} setSelectedType={setSelectedType} logs={filteredLogs || undefined} />
+      {/* 情報密度が低い「期間内に完了した案件」と「案件別サマリー」を横並び。
+          視覚的バランスとして、リスト型2つを左右に並べる方が読みやすい */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+        <V5CompletedInRange t={t} store={store} useAllTime={useAllTime} rb={rb} />
+        <V5ProjectSummary t={t} store={store} logs={filteredLogs || undefined} />
       </div>
 
-      {/* 期間内に完了した案件 (完了日 = 最終工程の最終提出日 || 案件締切) */}
-      <V5CompletedInRange t={t} store={store} useAllTime={useAllTime} rb={rb} />
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <div style={{ background: t.CARD, border: `1px solid ${t.BORDER}`, borderRadius: 10, padding: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT, marginBottom: 14 }}>工程別・累計時間</div>
-          {typeEntries.length === 0 && (
-            <div style={{ fontSize: 11, color: t.MUTED, padding: '20px 8px', textAlign: 'center' }}>
-              {useAllTime ? '実績の記録がありません' : 'この期間には記録がありません'}
-            </div>
-          )}
-          {typeEntries.map(([k, v]) => {
-            const col = processColor(k, 'solid', t.dark ? 'dark' : 'light');
-            const pct = (v / maxType) * 100;
-            return (
-              <div key={k} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 9, height: 9, borderRadius: 2, background: col }} />
-                    <span style={{ fontSize: 11.5, color: t.TEXT, fontWeight: 500 }}>{PROCESS_COLORS[k]?.name || k}</span>
-                  </div>
-                  <span style={{ fontSize: 11, color: t.TEXT, fontFamily: '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif', fontWeight: 600 }}>
-                    {v.toFixed(1)}<span style={{ fontSize: 9, color: t.MUTED, fontWeight: 400 }}>h</span>
-                  </span>
-                </div>
-                <div style={{ height: 7, background: t.SUBTLE, borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${col}aa, ${col})` }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
+      {/* 情報密度が高い「案件タイプ別・工程平均/累計」と「案件タイプ別配分(ドーナツ)」を横並び。
+          バーは多くの情報量を抱えるため広め (1.7fr)、ドーナツは小さく (1fr) で間延び解消。
+          「全タイプ」タブで旧 工程別累計の役割も担う。
+          alignItems 既定 (stretch) で高い方に高さを合わせる */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 12, marginBottom: 16 }}>
+        {(() => {
+          const TypeAverages = window.V3TypeAverages;
+          return <TypeAverages flush t={t} store={store} selectedType={selectedType} setSelectedType={setSelectedType} logs={filteredLogs || undefined} />;
+        })()}
         <V5TypeDistribution t={t} store={store} logs={filteredLogs || undefined} />
       </div>
     </div>
@@ -6010,7 +6321,7 @@ function V5CompletedInRange({ t, store, useAllTime, rb }) {
   return (
     <div style={{
       background: t.CARD, border: `1px solid ${t.BORDER}`, borderRadius: 10,
-      padding: 18, marginBottom: 16,
+      padding: 18,
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: t.TEXT }}>
@@ -6365,15 +6676,26 @@ window.V4TodayLog = function V4TodayLogV5({ t, store }) {
               <div style={{ fontSize: 12, fontWeight: 500, color: t.TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p ? (store.displayName ? store.displayName(p) : p.name) : ''}</div>
               <div style={{ fontSize: 10, color: t.MUTED }}>{PROCESS_COLORS[log.type]?.name}</div>
             </div>
-            {/* 時間インライン入力（行背景より一段薄いBG色）*/}
+            {/* 時間インライン入力 (−/+ ボタン付き) — マウス操作のみでも入力可。step は 0.5 */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 3, padding: '3px 7px',
+              display: 'flex', alignItems: 'center', gap: 2, padding: '2px 4px',
               background: t.BG, border: `1px solid ${t.BORDER}`, borderRadius: 5,
               transition: 'border-color 0.15s, box-shadow 0.15s',
             }}
               onFocus={e => { e.currentTarget.style.borderColor = t.ACCENT; e.currentTarget.style.boxShadow = `0 0 0 2px ${t.ACCENT}22`; }}
               onBlur={e => { e.currentTarget.style.borderColor = t.BORDER; e.currentTarget.style.boxShadow = 'none'; }}>
-              <input type="number" step="0.25" min="0"
+              <button onClick={() => store.updateLog(log.id, {
+                hours: Math.max(0, Math.round(((log.hours || 0) - 0.5) * 100) / 100),
+                date: log.date || form.date,
+              })} title="−0.5h" style={{
+                width: 18, height: 20, border: 'none', background: 'transparent',
+                color: t.MUTED, cursor: 'pointer', borderRadius: 3, padding: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                fontSize: 13, fontFamily: 'inherit',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.background = t.SUBTLE; e.currentTarget.style.color = t.TEXT; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.MUTED; }}>−</button>
+              <input type="number" step="0.5" min="0"
                 value={log.hours === 0 ? '' : log.hours}
                 placeholder="0"
                 onChange={e => store.updateLog(log.id, {
@@ -6382,12 +6704,23 @@ window.V4TodayLog = function V4TodayLogV5({ t, store }) {
                   date: log.date || form.date,
                 })}
                 style={{
-                  width: 42, fontSize: 13, fontWeight: 700, border: 'none',
+                  width: 38, fontSize: 13, fontWeight: 700, border: 'none',
                   background: 'transparent', color: t.TEXT, outline: 'none',
                   fontFamily: '"Futura", "Futura PT", "Century Gothic", "Avenir Next", "Noto Sans JP", "Yu Gothic", sans-serif',
                   textAlign: 'right', padding: 0, letterSpacing: -0.5,
                 }} />
-              <span style={{ fontSize: 10, color: t.MUTED, fontWeight: 500 }}>h</span>
+              <span style={{ fontSize: 10, color: t.MUTED, fontWeight: 500, marginRight: 2 }}>h</span>
+              <button onClick={() => store.updateLog(log.id, {
+                hours: Math.round(((log.hours || 0) + 0.5) * 100) / 100,
+                date: log.date || form.date,
+              })} title="+0.5h" style={{
+                width: 18, height: 20, border: 'none', background: 'transparent',
+                color: t.MUTED, cursor: 'pointer', borderRadius: 3, padding: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                fontSize: 13, fontFamily: 'inherit',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.background = t.SUBTLE; e.currentTarget.style.color = t.TEXT; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.MUTED; }}>+</button>
             </div>
             <button onClick={() => store.deleteLog(log.id)} title="削除" style={{
               width: 20, height: 20, border: 'none', background: 'transparent', cursor: 'pointer',
