@@ -110,6 +110,69 @@ function NumberPop({ value, style, className }) {
 }
 window.NumberPop = NumberPop;
 
+// Chromium / Electron で native confirm() を呼んだあとに、以降の <input> が
+// キー入力を受け付けなくなる現象 (renderer のキーボードルーティングが外れる) を回避するため、
+// native confirm を完全に廃止して React モーダルベースの非同期確認に置き換える。
+//
+// API: safeConfirm(message) → Promise<boolean>
+// 旧 if (confirm(...)) {...} → safeConfirm(...).then(ok => { if (ok) {...} })
+//
+// 実装は module レベル state + subscribers パターン。<V5ConfirmHost /> が常時 1 つ
+// マウントされていれば、どこから safeConfirm() を呼んでも同一インスタンスで描画される。
+let _confirmReq = null; // { id, message, resolve } | null
+const _confirmSubs = new Set();
+function _emitConfirm() { _confirmSubs.forEach(fn => fn(_confirmReq)); }
+function _resolveConfirm(value) {
+  const req = _confirmReq;
+  _confirmReq = null;
+  _emitConfirm();
+  if (req && req.resolve) req.resolve(!!value);
+}
+function safeConfirm(message) {
+  return new Promise(resolve => {
+    _confirmReq = { id: Date.now() + Math.random(), message: String(message || ''), resolve };
+    _emitConfirm();
+  });
+}
+window.safeConfirm = safeConfirm;
+
+// confirm dialog の購読 hook。<V5ConfirmHost /> 内で使用
+function useConfirmRequest() {
+  const [req, setReq] = React.useState(_confirmReq);
+  React.useEffect(() => {
+    const sub = (r) => setReq(r);
+    _confirmSubs.add(sub);
+    return () => _confirmSubs.delete(sub);
+  }, []);
+  return req;
+}
+
+// 常時マウントされる confirm ホスト。V3TopBar から 1 つだけ呼ぶ
+function V5ConfirmHost({ t }) {
+  const req = useConfirmRequest();
+  if (!req) return null;
+  return (
+    <ModalShell
+      t={t}
+      title="確認"
+      onClose={() => _resolveConfirm(false)}
+      width={420}
+      footer={
+        <>
+          <button onClick={() => _resolveConfirm(false)} style={buttonStyle(t, 'ghost')}>キャンセル</button>
+          <button onClick={() => _resolveConfirm(true)} style={buttonStyle(t, 'primary')} autoFocus>OK</button>
+        </>
+      }
+    >
+      <div style={{
+        fontSize: 13, color: t.TEXT, lineHeight: 1.7, whiteSpace: 'pre-wrap',
+        padding: '8px 0 4px',
+      }}>{req.message}</div>
+    </ModalShell>
+  );
+}
+window.V5ConfirmHost = V5ConfirmHost;
+
 // triggerKey が変わるとぼかし→クリアでスワップする汎用ラッパー（テキスト・アイコン共用）
 function TextSwap({ triggerKey, children, style, className, anim = 'text' }) {
   const animName = anim === 'icon' ? 'v5-icon-swap' : 'v5-text-swap';
@@ -633,9 +696,9 @@ window.V3SidebarRow = function V3SidebarRowV5({ t, project, expanded, onToggle, 
   const doDelete = () => {
     setMenuOpen(false);
     const dn = store?.displayName ? store.displayName(project) : project.name;
-    if (confirm(`「${dn}」を削除しますか？（取り消せません）`)) {
-      onDeleteProject && onDeleteProject(project.id);
-    }
+    safeConfirm(`「${dn}」を削除しますか？（取り消せません）`).then(ok => {
+      if (ok) onDeleteProject && onDeleteProject(project.id);
+    });
   };
 
   // ドラッグ状態は親 (V4Timeline) で一元管理。isDragging は props 経由
@@ -1434,9 +1497,9 @@ function V5CardContextMenu({ t, project, store, x, y, onClose, onEdit }) {
         onClick={() => {
           onClose();
           const dn = store?.displayName ? store.displayName(project) : project.name;
-          if (confirm(`「${dn}」を削除しますか？（取り消せません）`)) {
-            store.deleteProject(project.id);
-          }
+          safeConfirm(`「${dn}」を削除しますか？（取り消せません）`).then(ok => {
+            if (ok) store.deleteProject(project.id);
+          });
         }} />
     </div>,
     document.body
@@ -2399,10 +2462,12 @@ function V5ProjectEditor({ t, store, project, onClose, onEditSub }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20 }}>
         <button onClick={() => {
           const dn = store?.displayName ? store.displayName(project) : project.name;
-          if (confirm(`「${dn}」を削除しますか？（取り消せません）`)) {
-            store.deleteProject(project.id);
-            onClose();
-          }
+          safeConfirm(`「${dn}」を削除しますか？（取り消せません）`).then(ok => {
+            if (ok) {
+              store.deleteProject(project.id);
+              onClose();
+            }
+          });
         }} style={{
           padding: '8px 12px', fontSize: 11, fontWeight: 500,
           border: `1px solid ${t.dark ? '#f87171' : '#dc2626'}`,
@@ -2476,6 +2541,15 @@ window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQ
     document.addEventListener('pointerdown', onDown);
     return () => document.removeEventListener('pointerdown', onDown);
   }, [themeOpen]);
+
+  // 新規案件作成後のヒントモーダル: V3NewProjectModal から
+  // 'show-new-project-hint' イベントが飛んでくるのを受けて表示
+  const [newProjectHintOpen, setNewProjectHintOpen] = React.useState(false);
+  React.useEffect(() => {
+    const h = () => setNewProjectHintOpen(true);
+    window.addEventListener('show-new-project-hint', h);
+    return () => window.removeEventListener('show-new-project-hint', h);
+  }, []);
 
   // Ctrl+Z / Ctrl+Shift+Z (Mac は Meta) を document レベルでキャプチャ
   // input/textarea/contentEditable にフォーカス中はブラウザのネイティブ undo を優先
@@ -2714,6 +2788,10 @@ window.V3TopBar = function V3TopBarV5({ t, themeId, setThemeId, onFocus, searchQ
         onClose={() => { setSettingsOpen(false); setSettingsSection(null); }} />}
       {themeCreatorOpen && <V5ThemeCreatorModal t={t} themeId={themeId} setThemeId={setThemeId}
         onClose={() => setThemeCreatorOpen(false)} />}
+      {newProjectHintOpen && <V5NewProjectHintModal t={t}
+        onClose={() => setNewProjectHintOpen(false)} />}
+      {/* native confirm を完全廃止するため、React 版確認ダイアログをここに常駐させる */}
+      <V5ConfirmHost t={t} />
     </div>
   );
 };
@@ -3369,6 +3447,85 @@ window.useGreetingIcon = function useGreetingIcon() {
 
 // ホーム画面アイコンのアップロード + トリミング エディタ。
 // 200x200 の正方フレーム内で画像をドラッグ移動 + ズームスライダーで調整、保存時に 96x96 PNG へ書き出す。
+// 新規案件作成直後のヒントモーダル
+// 「今後表示しない」チェック → localStorage 'v5.hideNewProjectHint' = '1'
+function V5NewProjectHintModal({ t, onClose }) {
+  const [hide, setHide] = React.useState(false);
+  const close = () => {
+    if (hide) {
+      try { localStorage.setItem('v5.hideNewProjectHint', '1'); } catch (e) {}
+    }
+    onClose();
+  };
+  // title を渡せば 2 段組 (案A)、省略すれば本文だけ (案B)。両者が混在しても揃って見えるよう
+  // アイコン列の幅とフォントサイズは共通
+  const HintRow = ({ icon, title, body }) => (
+    <div style={{ display: 'flex', gap: 12, marginBottom: 14, alignItems: title ? 'flex-start' : 'center' }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+        background: `${t.ACCENT}18`, color: t.ACCENT,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+      }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {title && <div style={{ fontSize: 12, fontWeight: 600, color: t.TEXT, marginBottom: 3 }}>{title}</div>}
+        <div style={{ fontSize: 12, color: title ? t.MUTED : t.TEXT, lineHeight: 1.6 }}>{body}</div>
+      </div>
+    </div>
+  );
+  return (
+    <ModalShell
+      t={t}
+      title=""
+      onClose={close}
+      width={560}
+      footer={
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: t.MUTED, cursor: 'pointer', userSelect: 'none' }}>
+            <input type="checkbox" checked={hide} onChange={e => setHide(e.target.checked)}
+              style={{ width: 14, height: 14, accentColor: t.ACCENT, cursor: 'pointer', margin: 0 }} />
+            今後表示しない
+          </label>
+          <button onClick={close} style={buttonStyle(t, 'primary')}>閉じる</button>
+        </div>
+      }
+    >
+      {/* チェックアイコン + タイトルを 1 ユニットとして中央配置。アクセント色で統一感を出す。
+          ModalShell の X ボタン直下なので、上下対称な余白で「塊」感を作る */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '30px 0 30px' }}>
+        <div style={{
+          width: 96, height: 96, borderRadius: '50%',
+          background: `${t.ACCENT}18`, color: t.ACCENT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </div>
+        <div style={{
+          fontSize: 18, fontWeight: 700, color: t.ACCENT, letterSpacing: -0.3, textAlign: 'center',
+        }}>新規案件を作成しました</div>
+      </div>
+
+      <HintRow
+        icon="📅"
+        title="工程日"
+        body="予定時間から自動配置しました。バーをドラッグで移動・両端で伸縮できます。"
+      />
+      <HintRow
+        icon="🎯"
+        title="提出日"
+        body="タイムラインのセルをクリック → 「提出日にする」から設定（1工程に複数可）。"
+      />
+      <HintRow
+        icon="✏️"
+        title="編集"
+        body="案件名横の鉛筆アイコン、またはカードビューで案件をダブルクリック。"
+      />
+    </ModalShell>
+  );
+}
+window.V5NewProjectHintModal = V5NewProjectHintModal;
+
 function V5GreetingIconEditor({ t, onClose, onSaved }) {
   const FRAME = 200;
   const OUTPUT = 96;
@@ -3627,10 +3784,12 @@ function V5GreetingIconEditor({ t, onClose, onSaved }) {
         <div>
           {hasCurrent && (
             <button onClick={() => {
-              if (confirm('アップロードした画像を削除してデフォルト (☕) に戻しますか？')) {
-                saveGreetingIcon(null, 'accent');
-                onClose();
-              }
+              safeConfirm('アップロードした画像を削除してデフォルト (☕) に戻しますか？').then(ok => {
+                if (ok) {
+                  saveGreetingIcon(null, 'accent');
+                  onClose();
+                }
+              });
             }} style={{
               padding: '6px 10px', fontSize: 11, fontWeight: 500,
               border: `1px solid ${t.BORDER}`, background: 'transparent',
@@ -3659,9 +3818,9 @@ function V5HomeSettingsBody({ t }) {
   const icon = greeting.url;
   const [editorOpen, setEditorOpen] = React.useState(false);
   const clear = () => {
-    if (confirm('アップロードした画像を削除してデフォルト (☕) に戻しますか？')) {
-      saveGreetingIcon(null, 'accent');
-    }
+    safeConfirm('アップロードした画像を削除してデフォルト (☕) に戻しますか？').then(ok => {
+      if (ok) saveGreetingIcon(null, 'accent');
+    });
   };
   const bgValue = window.resolveGreetingIconBg
     ? window.resolveGreetingIconBg(t, greeting.bg)
@@ -5391,8 +5550,13 @@ function V5ChecklistFull({ t, project, store }) {
     setInput('');
   };
   const seedFromTemplate = () => {
-    if (items.length > 0 && !confirm('現在のチェック項目をテンプレートで置き換えますか？')) return;
-    save(makeChecklistFromTemplate());
+    if (items.length === 0) {
+      save(makeChecklistFromTemplate());
+      return;
+    }
+    safeConfirm('現在のチェック項目をテンプレートで置き換えますか？').then(ok => {
+      if (ok) save(makeChecklistFromTemplate());
+    });
   };
 
   const twoCol = items.length >= 6;
@@ -5789,12 +5953,14 @@ function V5ThemeCustomizerBody({ t, themeId, setThemeId }) {
     commit(next);
   };
   const del = (id) => {
-    if (!confirm(`「${themes[id].name}」を削除しますか？`)) return;
-    const next = { ...themes };
-    delete next[id];
-    commit(next);
-    if (themeId === id) setThemeId('paper');
-    if (editingId === id) setEditingId(null);
+    safeConfirm(`「${themes[id].name}」を削除しますか？`).then(ok => {
+      if (!ok) return;
+      const next = { ...themes };
+      delete next[id];
+      commit(next);
+      if (themeId === id) setThemeId('paper');
+      if (editingId === id) setEditingId(null);
+    });
   };
   const duplicate = (id) => {
     const src = themes[id];
@@ -6753,6 +6919,12 @@ window.V4TodayLog = function V4TodayLogV5({ t, store }) {
 
 // ============ 22. 新規案件モーダルを store に保存するよう接続 ============
 window.V3NewProjectModal = function V3NewProjectModalV5({ t, store, onClose }) {
+  // ドラッグ操作や native confirm 後に body スタイルが残るケースの保険。
+  // 案件削除後に新規案件モーダルを開くと入力が効かない報告への対応
+  React.useEffect(() => {
+    if (document.body.style.userSelect === 'none') document.body.style.userSelect = '';
+    if (document.body.style.cursor === 'grabbing') document.body.style.cursor = '';
+  }, []);
   const [name, setName] = React.useState('');
   const [deadlineDate, setDeadlineDate] = React.useState('');
   const [deadlineText, setDeadlineText] = React.useState('');
@@ -6825,6 +6997,13 @@ window.V3NewProjectModal = function V3NewProjectModalV5({ t, store, onClose }) {
       checklist,
     });
     onClose();
+    // 「今後表示しない」が立っていなければヒントモーダルを表示
+    try {
+      if (localStorage.getItem('v5.hideNewProjectHint') !== '1') {
+        // モーダル切り替えのアニメーションが落ち着くまで少し待つ
+        setTimeout(() => window.dispatchEvent(new Event('show-new-project-hint')), 200);
+      }
+    } catch (e) {}
   };
 
   return (

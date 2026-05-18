@@ -428,8 +428,15 @@ function ModalShell({ t, title, onClose, width = 520, height, bodyScroll = true,
         transition: 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease',
         transformOrigin: 'center center',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexShrink: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: t.TEXT, letterSpacing: -0.3 }}>{title}</div>
+        {/* title 空のケース (新規案件作成ヒント等): タイトル列を描画せず X ボタンだけにする。
+            marginBottom も縮めて、子コンテンツ側で対称な余白を作りやすくする */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: title ? 18 : 0, flexShrink: 0,
+        }}>
+          {title
+            ? <div style={{ fontSize: 16, fontWeight: 600, color: t.TEXT, letterSpacing: -0.3 }}>{title}</div>
+            : <div />}
           <button onClick={requestClose} style={{
             width: 28, height: 28, border: 'none', background: 'transparent',
             cursor: 'pointer', color: t.MUTED, borderRadius: 6,

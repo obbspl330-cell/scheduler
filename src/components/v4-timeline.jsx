@@ -369,9 +369,7 @@ function V4Timeline({ t, store, dayW, monthOffset, setMonthOffset, expanded, set
               onAddProc={(pid, type) => store.addProc(pid, type)}
               onDeleteProc={(pid, prid) => store.deleteProc(pid, prid)}
               onEditProject={onEditProject}
-              onDeleteProject={(pid) => {
-                if (confirm('この案件を削除しますか？（取り消せません）')) store.deleteProject(pid);
-              }}
+              onDeleteProject={(pid) => store.deleteProject(pid)}
               onDragHandlePointerDown={handleDragHandlePointerDown}
               isDragging={drag?.id === p.id}
             />
