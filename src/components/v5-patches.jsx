@@ -887,6 +887,172 @@ const v5MemoEditor = (function() {
 // 他画面遷移 / モーダルオープン時に呼んで閉じる用
 window.v5MemoEditor = v5MemoEditor;
 
+// ============ 日マーカー (予定 / 休日 / 作業不可) ============
+// 設計: 状態ラジオ (通常 / 休日 / 作業不可) + メモ欄
+// - 休日 は既存 customHolidays に委譲 (store.isHoliday / store.toggleHoliday)
+// - 作業不可フラグ と メモ は localStorage 'v5.dayMarks' に保存
+// - 「予定あり」は独立した状態ではなく「通常 + メモあり」で表現
+const DAY_MARKS_KEY = 'v5.dayMarks';
+const _DM_START = new Date(2026, 3, 15); // DATA_START と一致させること
+function _dmDayKey(d) { return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function _dmIdxToDate(idx) {
+  const d = new Date(_DM_START);
+  d.setDate(d.getDate() + idx);
+  return d;
+}
+// 外部ストア: marks = { [dayKey]: { blocked?: true, note?: string } }
+const v5DayMarks = (function() {
+  let marks;
+  try { marks = JSON.parse(localStorage.getItem(DAY_MARKS_KEY) || '{}'); }
+  catch (e) { marks = {}; }
+  const listeners = new Set();
+  const emit = () => listeners.forEach(fn => fn());
+  const persist = () => {
+    try { localStorage.setItem(DAY_MARKS_KEY, JSON.stringify(marks)); } catch (e) {}
+  };
+  return {
+    getSnapshot: () => marks,
+    get(key) { return marks[key] || null; },
+    isBlocked(key) { return !!(marks[key] && marks[key].blocked); },
+    isBlockedIdx(idx) { return v5DayMarks.isBlocked(_dmDayKey(_dmIdxToDate(idx))); },
+    set(key, patch) {
+      const cur = marks[key] || {};
+      const next = { ...cur, ...patch };
+      const hasNote = next.note && String(next.note).trim();
+      if (!next.blocked && !hasNote) {
+        delete marks[key];
+      } else {
+        if (!hasNote) delete next.note;
+        marks[key] = next;
+      }
+      marks = { ...marks };
+      persist();
+      emit();
+    },
+    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+  };
+})();
+window.v5DayMarks = v5DayMarks;
+
+// 日付ヘッダークリックで開く設定ポップオーバー
+// anchorRect: 開いたセルの getBoundingClientRect() のスナップショット
+function V5DayMarkPopover({ t, store, date, anchorRect, onClose }) {
+  const key = _dmDayKey(date);
+  const mark = v5DayMarks.get(key) || {};
+  const isHoliday = store.isHoliday(date);
+  const isBlocked = !!mark.blocked;
+  const curState = isBlocked ? 'blocked' : isHoliday ? 'holiday' : 'normal';
+  const [note, setNote] = React.useState(mark.note || '');
+  const noteRef = React.useRef(note);
+  noteRef.current = note;
+  const ref = React.useRef(null);
+
+  const saveAndClose = () => {
+    v5DayMarks.set(key, { note: noteRef.current });
+    onClose();
+  };
+  // 外側クリック / スクロールで閉じる (閉じる前にメモ保存)
+  React.useEffect(() => {
+    const onDoc = (e) => {
+      if (ref.current && ref.current.contains(e.target)) return;
+      saveAndClose();
+    };
+    const onScroll = () => saveAndClose();
+    const id = requestAnimationFrame(() => {
+      document.addEventListener('mousedown', onDoc);
+      window.addEventListener('scroll', onScroll, true);
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, []);
+
+  const applyState = (next) => {
+    if (next === 'holiday' && !isHoliday) store.toggleHoliday(date);
+    if (next !== 'holiday' && isHoliday) store.toggleHoliday(date);
+    v5DayMarks.set(key, { blocked: next === 'blocked', note: noteRef.current });
+  };
+
+  // 位置: セル直下。画面右端ではみ出す場合は左寄せにクランプ
+  const PW = 248;
+  const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - PW - 8));
+  const top = Math.min(anchorRect.bottom + 6, window.innerHeight - 240);
+  const wd = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+
+  const RadioRow = ({ value, label }) => {
+    const active = curState === value;
+    return (
+      <button onClick={() => applyState(value)} style={{
+        display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+        padding: '7px 8px', border: 'none', borderRadius: 6, cursor: 'pointer',
+        background: active ? `${t.ACCENT}15` : 'transparent',
+        fontFamily: 'inherit', textAlign: 'left',
+      }}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.SUBTLE; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
+        <span style={{
+          width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+          border: `1.5px solid ${active ? t.ACCENT : t.BORDER}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {active && <span style={{ width: 7, height: 7, borderRadius: '50%', background: t.ACCENT }} />}
+        </span>
+        <span style={{ fontSize: 12, color: active ? t.ACCENT : t.TEXT, fontWeight: active ? 600 : 500 }}>{label}</span>
+      </button>
+    );
+  };
+
+  return ReactDOM.createPortal(
+    <div ref={ref} style={{
+      position: 'fixed', left, top, width: PW, zIndex: 200,
+      background: t.CARD, border: `1px solid ${t.BORDER}`, borderRadius: 10,
+      boxShadow: t.dark ? '0 10px 30px rgba(0,0,0,0.5)' : '0 10px 30px rgba(0,0,0,0.15)',
+      padding: 12,
+    }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: t.TEXT, marginBottom: 8 }}>
+        {date.getMonth()+1}月{date.getDate()}日（{wd}）の設定
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 10 }}>
+        <RadioRow value="normal" label="通常" />
+        <RadioRow value="holiday" label="休日" />
+        <RadioRow value="blocked" label="作業不可" />
+      </div>
+      <div style={{ fontSize: 10, color: t.MUTED, fontWeight: 600, marginBottom: 4 }}>メモ / 予定</div>
+      <textarea value={note} onChange={e => setNote(e.target.value)}
+        placeholder="例: 通院、外出"
+        rows={2}
+        style={{
+          width: '100%', boxSizing: 'border-box', resize: 'vertical',
+          padding: '6px 8px', fontSize: 11.5, lineHeight: 1.5,
+          border: `1px solid ${t.BORDER}`, borderRadius: 6,
+          background: t.BG, color: t.TEXT, fontFamily: 'inherit', outline: 'none',
+        }} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+        <button onClick={() => {
+          // リセット: 状態を通常へ / メモを削除して閉じる
+          if (store.isHoliday(date)) store.toggleHoliday(date);
+          v5DayMarks.set(key, { blocked: false, note: '' });
+          onClose();
+        }} style={{
+          padding: '5px 12px', fontSize: 11, fontWeight: 500,
+          border: `1px solid ${t.BORDER}`, borderRadius: 6,
+          background: 'transparent', color: t.MUTED,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>リセット</button>
+        <button onClick={saveAndClose} style={{
+          padding: '5px 14px', fontSize: 11, fontWeight: 600,
+          border: 'none', borderRadius: 6, background: t.ACCENT, color: 'white',
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>閉じる</button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+window.V5DayMarkPopover = V5DayMarkPopover;
+
 const _origProcRow = window.V4ProcessRow;
 window.V4ProcessRow = function V4ProcessRowV5({ t, project, pr, store, days, todayIdx, shiftIdx, dayW }) {
   const [memos, setMemos] = React.useState(() => {
@@ -937,9 +1103,15 @@ window.V4ProcessRow = function V4ProcessRowV5({ t, project, pr, store, days, tod
   const setEditing = (dayIdx, anchor) => {
     if (dayIdx === null || dayIdx === undefined) {
       v5MemoEditor.close();
-    } else {
-      v5MemoEditor.open({ projectId: project.id, prId: pr.id, dayIdx, anchor });
+      return;
     }
+    // 既に別セル (もしくは同セル) のポップオーバーが開いていれば、まず閉じるだけ。
+    // 続けてもう一度クリックされれば下の open が走って開く 2 段階動作
+    if (v5MemoEditor.getSnapshot()) {
+      v5MemoEditor.close();
+      return;
+    }
+    v5MemoEditor.open({ projectId: project.id, prId: pr.id, dayIdx, anchor });
   };
   const [drag, setDrag] = React.useState(null);
   const [hoverEmpty, setHoverEmpty] = React.useState(null);
@@ -6973,8 +7145,12 @@ window.V3NewProjectModal = function V3NewProjectModalV5({ t, store, onClose }) {
       const avgH = selectedTypeId && TYPE_PROCESS_AVG[selectedTypeId]?.[type];
       const plannedH = avgH ? Math.round(avgH * 10) / 10 : 8;
       const dayCount = Math.max(1, Math.round(plannedH / 3));
-      const days = Array.from({ length: dayCount }, (_, k) => startDay + k);
-      startDay += dayCount;
+      // 作業不可日 (v5.dayMarks) はスキップして連続でない配置にする
+      const days = [];
+      while (days.length < dayCount) {
+        if (!v5DayMarks.isBlockedIdx(startDay)) days.push(startDay);
+        startDay++;
+      }
       return {
         id: 'pr' + Date.now() + '_' + i,
         type, plannedH, actualH: 0, days,

@@ -5,6 +5,13 @@ function V4Timeline({ t, store, dayW, monthOffset, setMonthOffset, expanded, set
   if (typeof window !== 'undefined') window.currentHolidays = store.holidays;
   // 「今日」は render 時に再計算（モジュールロード時の TODAY を使うと日付をまたいで stale になる）
   const realToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+
+  // 日マーカー (予定/休日/作業不可) の購読 + 日付ヘッダークリックで開くポップオーバー
+  const dayMarks = React.useSyncExternalStore(
+    window.v5DayMarks.subscribe, window.v5DayMarks.getSnapshot, window.v5DayMarks.getSnapshot
+  );
+  const [dayPopover, setDayPopover] = React.useState(null); // { date, anchorRect } | null
+  const dmKey = (d) => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
   // 表示ベース月 = 実際の今月 + monthOffset
   const baseDate = new Date(realToday.getFullYear(), realToday.getMonth() + monthOffset, 1);
   const monthsToShow = 6;
@@ -377,7 +384,19 @@ function V4Timeline({ t, store, dayW, monthOffset, setMonthOffset, expanded, set
         </div>
 
         <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', scrollBehavior: 'smooth' }}>
-          <div style={{ minWidth: dayW * totalDays, transition: 'opacity 0.2s' }}>
+          <div style={{ minWidth: dayW * totalDays, transition: 'opacity 0.2s', position: 'relative' }}>
+            {/* 作業不可日: 全行にわたって列をうっすら暗くするオーバーレイ */}
+            {days.map((d, i) => {
+              const mk = dayMarks[dmKey(d)];
+              if (!mk || !mk.blocked) return null;
+              return (
+                <div key={`blk${i}`} style={{
+                  position: 'absolute', left: i * dayW, width: dayW, top: 0, bottom: 0,
+                  background: t.dark ? 'rgba(0,0,0,0.32)' : 'rgba(0,0,0,0.07)',
+                  pointerEvents: 'none', zIndex: 5,
+                }} />
+              );
+            })}
             <div style={{ display: 'flex', height: 22, borderBottom: `1px solid ${t.BORDER}`, background: t.SUBTLE }}>
               {monthBlocks.map((m, i) => (
                 <div key={i} style={{
@@ -395,8 +414,14 @@ function V4Timeline({ t, store, dayW, monthOffset, setMonthOffset, expanded, set
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                 const isToday = i === todayIdx;
                 const isHoliday = store.isHoliday(d);
+                const mark = dayMarks[dmKey(d)] || null;
+                const isBlocked = !!(mark && mark.blocked);
+                const hasNote = !!(mark && mark.note);
+                // 日マーカー設定モーダルが開いている日付には工程セルと同様の点線アウトラインを付ける
+                const isDayEditing = dayPopover && dmKey(dayPopover.date) === dmKey(d);
                 const offDay = isWeekend || isHoliday;
                 const color = isToday ? t.ACCENT
+                  : isBlocked ? (t.dark ? '#9ca3af' : '#6b7280')
                   : isHoliday ? (t.dark ? '#f87171' : '#c0454d')
                   : d.getDay() === 0 ? (t.dark ? '#f87171' : '#c0454d')
                   : d.getDay() === 6 ? (t.dark ? '#60a5fa' : '#3b6caa')
@@ -406,18 +431,42 @@ function V4Timeline({ t, store, dayW, monthOffset, setMonthOffset, expanded, set
                   : 'transparent';
                 return (
                   <div key={i}
-                    onClick={() => store.toggleHoliday(d)}
-                    title={isHoliday ? 'クリックで平日に戻す' : 'クリックで休日に設定 (有休/祝日/代休など)'}
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setDayPopover({ date: d, anchorRect: { left: r.left, bottom: r.bottom } });
+                    }}
+                    title="クリックで予定 / 休日 / 作業不可を設定"
                     style={{
                       width: dayW, flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       background: bg,
                       borderLeft: d.getDate() === 1 ? `1px solid ${t.BORDER}` : 'none',
-                      fontSize: 10, fontWeight: isToday || isHoliday ? 700 : 500,
+                      fontSize: 10, fontWeight: isToday || isHoliday || isBlocked ? 700 : 500,
                       color, cursor: 'pointer', userSelect: 'none', position: 'relative',
+                      // 工程セルと同じ角丸 + 点線アウトライン (Chromium は outline が border-radius に追従)
+                      outline: isDayEditing ? `2px dashed ${t.ACCENT}` : 'none',
+                      outlineOffset: isDayEditing ? -2 : 0,
+                      borderRadius: isDayEditing ? 4 : 0,
                     }}>
-                    {d.getDate()}
-                    {isHoliday && !isToday && (
+                    {/* 予定あり (メモあり) は日付を塗りつぶし円に入れて目立たせる */}
+                    {hasNote ? (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        minWidth: 16, height: 16, borderRadius: '50%', padding: '0 2px',
+                        background: t.dark ? '#fbbf24' : '#d97706',
+                        color: t.dark ? '#1f2937' : '#ffffff',
+                        fontWeight: 700, lineHeight: 1,
+                      }}>{d.getDate()}</span>
+                    ) : d.getDate()}
+                    {/* 作業不可は × 印 */}
+                    {isBlocked && !isToday && (
+                      <div style={{
+                        position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+                        fontSize: 8, fontWeight: 700, color: t.dark ? '#9ca3af' : '#6b7280', lineHeight: 1,
+                      }}>×</div>
+                    )}
+                    {/* 休日ドット (作業不可でない時のみ) */}
+                    {isHoliday && !isBlocked && !isToday && (
                       <div style={{
                         position: 'absolute', bottom: 1, left: '50%', transform: 'translateX(-50%)',
                         width: 4, height: 4, borderRadius: '50%',
@@ -436,6 +485,19 @@ function V4Timeline({ t, store, dayW, monthOffset, setMonthOffset, expanded, set
           </div>
         </div>
       </div>
+      {/* 日付ヘッダークリックで開く 予定/休日/作業不可 設定ポップオーバー */}
+      {(() => {
+        const DayMarkPopover = window.V5DayMarkPopover;
+        if (!dayPopover || !DayMarkPopover) return null;
+        return (
+          <DayMarkPopover
+            t={t} store={store}
+            date={dayPopover.date}
+            anchorRect={dayPopover.anchorRect}
+            onClose={() => setDayPopover(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

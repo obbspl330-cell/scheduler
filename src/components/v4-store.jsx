@@ -162,6 +162,31 @@ function recomputeAutoPlanned(projects, workHours, holidaysSet) {
   });
 }
 
+// addLog 用の単調増加カウンタ。同 ms 内の連続 addLog でも ID 衝突しないようにする
+let _logIdSeq = 0;
+
+// 既存ログ配列の重複 ID を検出・修復する。読み込み時に 1 度実行
+function dedupLogIds(logs) {
+  if (!Array.isArray(logs) || logs.length === 0) return logs;
+  const seen = new Set();
+  let changed = false;
+  const fixed = logs.map(l => {
+    const id = l.id;
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      return l;
+    }
+    changed = true;
+    let newId;
+    do {
+      newId = 'l' + Date.now() + '_' + (_logIdSeq++).toString(36) + Math.random().toString(36).slice(2, 6);
+    } while (seen.has(newId));
+    seen.add(newId);
+    return { ...l, id: newId };
+  });
+  return changed ? fixed : logs;
+}
+
 function useV4Store() {
   const [workHours, setWorkHoursState] = React.useState(loadWorkHours);
   const [holidays, setHolidaysState] = React.useState(() => {
@@ -186,7 +211,8 @@ function useV4Store() {
   }, []);
 
   const [types, setTypes] = React.useState(() => clone(persistedRef.current?.types || PROJECT_TYPES));
-  const [logs, setLogs] = React.useState(() => clone(persistedRef.current?.logs || TODAY_LOG));
+  // 重複 ID ログの修復 (旧 addLog の Date.now() 衝突バグでローカル保存に重複 ID が残っているケースの救済)
+  const [logs, setLogs] = React.useState(() => dedupLogIds(clone(persistedRef.current?.logs || TODAY_LOG)));
 
   // カードビュー用の独立した並び順 (projects 配列の順序とは別管理)
   const KANBAN_ORDER_KEY = 'v5.kanbanOrder';
@@ -380,8 +406,12 @@ function useV4Store() {
   };
 
   // ログ追加（集中モードから）
+  // ID は Date.now() + カウンタ + 乱数 で必ず一意に。
+  // 旧実装は 'l' + Date.now() のみで、同 ms 内に複数 addLog を呼ぶと衝突し
+  // updateLog が複数ログを書き換える致命バグになっていた
   const addLog = (log) => {
-    setLogs(ls => [...ls, { id: 'l' + Date.now(), ...log }]);
+    const id = 'l' + Date.now() + '_' + (_logIdSeq++).toString(36) + Math.random().toString(36).slice(2, 6);
+    setLogs(ls => [...ls, { id, ...log }]);
   };
   const updateLog = (id, patch) => {
     setLogs(ls => ls.map(l => l.id === id ? { ...l, ...patch } : l));
